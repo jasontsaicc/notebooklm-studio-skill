@@ -15,10 +15,13 @@ notebooklm-studio/
 ├── references/
 │   ├── modes.md
 │   ├── output-contracts.md
-│   └── audio-sla.md
+│   ├── audio-sla.md
+│   └── telegram-delivery.md
 ├── scripts/
 │   ├── README.md
-│   └── adapter_interface.py
+│   ├── adapter_interface.py
+│   ├── compress_audio.sh
+│   └── send_telegram_audio_stub.py
 └── notebooklm-studio.skill
 ```
 
@@ -40,8 +43,9 @@ Then invoke workflows through your orchestrator agent or cron-triggered isolated
 - Prioritize podcast generation first.
 - Retry transient failures up to 2 times.
 - If podcast still fails, trigger fallback and still deliver on time.
+- Post-process audio with ffmpeg before Telegram upload.
 - Include normalized error code and fallback note in delivery.
-- See `references/audio-sla.md` for SLA details.
+- See `references/audio-sla.md` and `references/telegram-delivery.md` for SLA and delivery details.
 
 ## Examples
 
@@ -50,6 +54,7 @@ Then invoke workflows through your orchestrator agent or cron-triggered isolated
 
 ## Version
 
+- v0.3.0 (ffmpeg compression + telegram delivery contract)
 - v0.2.0 (adapter interface + audio SLA)
 - v0.1.1 (license + examples + audio-first docs)
 - v0.1.0 (initial GitHub-ready package)

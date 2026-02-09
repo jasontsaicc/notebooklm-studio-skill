@@ -1,0 +1,10 @@
+{
+  "adapter_ready": false,
+  "audio_result": {
+    "status": "fail",
+    "artifact": null,
+    "fallback_used": false,
+    "error_code": "NLM_ADAPTER_DEP_MISSING",
+    "error_message": "No module named 'notebooklm_py'"
+  }
+}

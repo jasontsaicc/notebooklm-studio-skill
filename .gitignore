@@ -13,3 +13,6 @@ __pycache__/
 # Temp
 *.tmp
 *.log
+
+# Python venv
+.venv/

@@ -14,7 +14,11 @@ notebooklm-studio/
 ├── SKILL.md
 ├── references/
 │   ├── modes.md
-│   └── output-contracts.md
+│   ├── output-contracts.md
+│   └── audio-sla.md
+├── scripts/
+│   ├── README.md
+│   └── adapter_interface.py
 └── notebooklm-studio.skill
 ```
 
@@ -34,8 +38,10 @@ Then invoke workflows through your orchestrator agent or cron-triggered isolated
 ## Audio-first behavior
 
 - Prioritize podcast generation first.
-- If podcast fails, still deliver text artifacts on time.
-- Include failure reason and fallback note in delivery.
+- Retry transient failures up to 2 times.
+- If podcast still fails, trigger fallback and still deliver on time.
+- Include normalized error code and fallback note in delivery.
+- See `references/audio-sla.md` for SLA details.
 
 ## Examples
 
@@ -44,6 +50,7 @@ Then invoke workflows through your orchestrator agent or cron-triggered isolated
 
 ## Version
 
+- v0.2.0 (adapter interface + audio SLA)
 - v0.1.1 (license + examples + audio-first docs)
 - v0.1.0 (initial GitHub-ready package)
 

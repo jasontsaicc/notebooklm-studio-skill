@@ -23,7 +23,6 @@ notebooklm-studio/
 - Defines output modes (`podcast-only`, `report-only`, `study-pack`, `full-pack`)
 - Enforces reliability policy (retry, timeout, fallback)
 - Standardizes output contracts for report/quiz/flashcards/podcast
-- Supports DevOps and System Design content pipelines
 
 ## Install / use
 

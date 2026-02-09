@@ -17,7 +17,8 @@ notebooklm-studio/
 │   ├── output-contracts.md
 │   ├── audio-sla.md
 │   ├── telegram-delivery.md
-│   └── adapter-notes.md
+│   ├── adapter-notes.md
+│   └── auth-and-transfer.md
 ├── scripts/
 │   ├── README.md
 │   ├── adapter_interface.py
@@ -40,6 +41,8 @@ notebooklm-studio/
 2. Distribute/import `notebooklm-studio.skill` package.
 3. For adapter execution, install pinned dependency:
    - `pip install -r requirements.txt`
+4. Prepare NotebookLM auth storage state (`storage_state.json`) and transfer it to OpenClaw host.
+   - See `references/auth-and-transfer.md`
 
 Then invoke workflows through your orchestrator agent or cron-triggered isolated agent.
 

@@ -21,6 +21,7 @@ notebooklm-studio/
 │   ├── README.md
 │   ├── adapter_interface.py
 │   ├── compress_audio.sh
+│   ├── run_audio_postprocess.py
 │   └── send_telegram_audio_stub.py
 └── notebooklm-studio.skill
 ```
@@ -51,9 +52,11 @@ Then invoke workflows through your orchestrator agent or cron-triggered isolated
 
 - `examples/devops-input.json`
 - `examples/system-design-input.json`
+- `examples/payload-sample.json` (OpenClaw message payload after audio post-process)
 
 ## Version
 
+- v0.3.1 (audio post-process runner + Telegram payload bridge)
 - v0.3.0 (ffmpeg compression + telegram delivery contract)
 - v0.2.0 (adapter interface + audio SLA)
 - v0.1.1 (license + examples + audio-first docs)

@@ -1,24 +1,63 @@
-"""Telegram audio send stub.
+"""Telegram delivery bridge for notebooklm-studio.
 
-Replace with your actual OpenClaw message-tool integration layer.
+This module prepares a delivery payload that OpenClaw runtime can send via
+`message(action=send, filePath=..., target=...)`.
+
+Design note:
+- Keep this module runtime-agnostic (no direct network SDK dependency).
+- Return a structured payload for orchestrator/agent to execute.
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, asdict
+from pathlib import Path
+from typing import Any, Dict, Optional
+
+
+@dataclass
+class TelegramDeliveryPayload:
+    action: str
+    channel: str
+    target: str
+    filePath: str
+    caption: Optional[str] = None
 
 
 @dataclass
 class TelegramSendResult:
     ok: bool
-    message_id: str | None = None
-    error_code: str | None = None
-    error_message: str | None = None
+    payload: Optional[Dict[str, Any]] = None
+    error_code: Optional[str] = None
+    error_message: Optional[str] = None
 
 
-def send_audio(file_path: str, target: str, caption: str | None = None) -> TelegramSendResult:
-    """Stub for Telegram delivery.
+def build_delivery_payload(file_path: str, target: str, caption: str | None = None) -> TelegramSendResult:
+    """Build an OpenClaw-compatible message payload.
 
-    Expected target format: telegram:<chat_id>
+    target format example:
+    - "telegram:-5117247168"
     """
-    # Integrate with your runtime's message tool (action=send, filePath=...)
-    # This stub intentionally does not perform network I/O.
-    return TelegramSendResult(ok=False, error_code="TELEGRAM_NOT_IMPLEMENTED", error_message="Implement runtime message-tool bridge")
+
+    p = Path(file_path)
+    if not p.exists():
+        return TelegramSendResult(
+            ok=False,
+            error_code="TELEGRAM_FILE_NOT_FOUND",
+            error_message=f"Audio file not found: {file_path}",
+        )
+
+    if not target.startswith("telegram:"):
+        return TelegramSendResult(
+            ok=False,
+            error_code="TELEGRAM_TARGET_INVALID",
+            error_message="Target must use format telegram:<chat_id>",
+        )
+
+    chat_id = target.split(":", 1)[1]
+    payload = TelegramDeliveryPayload(
+        action="send",
+        channel="telegram",
+        target=chat_id,
+        filePath=str(p),
+        caption=caption,
+    )
+    return TelegramSendResult(ok=True, payload=asdict(payload))

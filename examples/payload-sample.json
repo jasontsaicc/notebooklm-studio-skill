@@ -1,0 +1,13 @@
+{
+  "compressed_artifact": "/tmp/devops-daily.mp3",
+  "delivery": {
+    "action": "send",
+    "channel": "telegram",
+    "target": "-5117247168",
+    "filePath": "/tmp/devops-daily.mp3",
+    "caption": "Daily DevOps podcast"
+  },
+  "delivery_ok": true,
+  "error_code": null,
+  "error_message": null
+}

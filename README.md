@@ -1,7 +1,7 @@
 # notebooklm-studio (OpenClaw Skill)
 
 Reusable NotebookLM workflow skill for generating:
-- podcast audio
+- podcast audio (audio-first supported)
 - report summaries
 - quiz sets
 - flashcards
@@ -32,9 +32,21 @@ notebooklm-studio/
 
 Then invoke workflows through your orchestrator agent or cron-triggered isolated agent.
 
+## Audio-first behavior
+
+- Prioritize podcast generation first.
+- If podcast fails, still deliver text artifacts on time.
+- Include failure reason and fallback note in delivery.
+
+## Examples
+
+- `examples/devops-input.json`
+- `examples/system-design-input.json`
+
 ## Version
 
-- v1.0.0 (initial GitHub-ready package)
+- v0.1.1 (license + examples + audio-first docs)
+- v0.1.0 (initial GitHub-ready package)
 
 ## Notes
 

@@ -1,0 +1,12 @@
+{
+  "mode": "full-pack",
+  "topic": "DevOps",
+  "sources": [
+    "https://aws.amazon.com/blogs/devops/build-health-aware-ci-cd-pipelines/"
+  ],
+  "audio_language": "en",
+  "report_language": "zh-Hant",
+  "audience_level": "intermediate",
+  "delivery_target": "telegram:-5204504124",
+  "deadline": "09:00 Asia/Taipei"
+}

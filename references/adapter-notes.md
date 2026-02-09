@@ -16,6 +16,7 @@ Provide a concrete, swappable adapter implementation entry point.
   3) generate audio
   4) wait for completion
   5) download audio
+- Fast-fail guard: if `generate_audio` returns `status=failed` or empty `task_id`, adapter exits immediately with `NLM_RPC_CREATE_ARTIFACT_FAILED`.
 - Report/quiz/flashcards remain intentionally unmapped in v0.4.1.
 
 ## Environment

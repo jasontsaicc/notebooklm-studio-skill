@@ -84,10 +84,20 @@ class NotebookLMPyAdapter(NotebookLMAdapter):
                 language=language,
             )
 
+            # Fast-fail when NotebookLM rejects artifact creation immediately.
+            gen_status = str(getattr(gen, "status", "")).lower()
+            gen_task_id = str(getattr(gen, "task_id", "") or "").strip()
+            if gen_status == "failed" or not gen_task_id:
+                return AudioResult(
+                    status="fail",
+                    error_code="NLM_RPC_CREATE_ARTIFACT_FAILED",
+                    error_message=f"generate_audio failed early (status={gen_status}, task_id={gen_task_id or 'empty'})",
+                )
+
             try:
                 final = await client.artifacts.wait_for_completion(
                     notebook_id=notebook_id,
-                    task_id=gen.task_id,
+                    task_id=gen_task_id,
                     timeout=float(timeout_seconds),
                 )
             except RPCTimeoutError as e:

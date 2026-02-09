@@ -65,6 +65,7 @@ Then invoke workflows through your orchestrator agent or cron-triggered isolated
 
 ## Version
 
+- v0.4.3 (fast-fail on create_artifact failure / empty task_id)
 - v0.4.1 (pinned notebooklm-py + real audio mapping)
 - v0.4.0 (notebooklm-py adapter scaffold + smoke test)
 - v0.3.1 (audio post-process runner + Telegram payload bridge)

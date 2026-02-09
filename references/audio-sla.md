@@ -9,6 +9,7 @@ Ensure **daily audio delivery** with graceful degradation.
 
 ## Timeout policy
 - If artifact remains pending beyond timeout, mark as `NLM_PENDING_TIMEOUT` and retry.
+- Recommended timeout: 1200s for production daily runs.
 
 ## Fallback policy
 - If primary path still fails after retries, trigger fallback TTS.

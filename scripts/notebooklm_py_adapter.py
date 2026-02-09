@@ -111,7 +111,7 @@ class NotebookLMPyAdapter(NotebookLMAdapter):
         topic: str,
         sources: List[str],
         language: str = "en",
-        timeout_seconds: int = 600,
+        timeout_seconds: int = 1200,
     ) -> AudioResult:
         if self._client_error:
             return AudioResult(
@@ -166,7 +166,7 @@ class NotebookLMPyAdapter(NotebookLMAdapter):
 
 def smoke_test() -> Dict[str, Any]:
     adapter = NotebookLMPyAdapter()
-    audio = adapter.generate_audio(topic="smoke-test", sources=["https://example.com"], language="en", timeout_seconds=30)
+    audio = adapter.generate_audio(topic="smoke-test", sources=["https://example.com"], language="en", timeout_seconds=300)
     return {
         "adapter_dependency_ready": adapter._client_error is None,
         "audio_result": asdict(audio),

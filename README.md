@@ -18,7 +18,8 @@ notebooklm-studio/
 │   ├── audio-sla.md
 │   ├── telegram-delivery.md
 │   ├── adapter-notes.md
-│   └── auth-and-transfer.md
+│   ├── auth-and-transfer.md
+│   └── deadline-fallback-policy.md
 ├── scripts/
 │   ├── README.md
 │   ├── adapter_interface.py
@@ -53,7 +54,7 @@ Then invoke workflows through your orchestrator agent or cron-triggered isolated
 - If podcast still fails, trigger fallback and still deliver on time.
 - Post-process audio with ffmpeg before Telegram upload.
 - Include normalized error code and fallback note in delivery.
-- See `references/audio-sla.md` and `references/telegram-delivery.md` for SLA and delivery details.
+- See `references/audio-sla.md`, `references/telegram-delivery.md`, and `references/deadline-fallback-policy.md` for SLA/delivery/deadline behavior.
 
 ## Examples
 

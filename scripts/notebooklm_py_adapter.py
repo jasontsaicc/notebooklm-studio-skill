@@ -13,6 +13,8 @@ Prerequisites:
 - Optional env vars:
   - NLM_STORAGE_PATH: custom auth storage_state.json path
   - NLM_OUTPUT_DIR: directory for downloaded artifacts
+  - NLM_TIMEOUT_SECONDS: default generation timeout (default: 1200)
+  - NLM_FALLBACK_WINDOW_SECONDS: recommended fallback window before deadline (default: 900)
 """
 
 from __future__ import annotations
@@ -25,6 +27,10 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from adapter_interface import AudioResult, NotebookLMAdapter
+
+
+DEFAULT_TIMEOUT_SECONDS = int(os.getenv("NLM_TIMEOUT_SECONDS", "1200"))
+DEFAULT_FALLBACK_WINDOW_SECONDS = int(os.getenv("NLM_FALLBACK_WINDOW_SECONDS", "900"))
 
 
 class NotebookLMPyAdapter(NotebookLMAdapter):
@@ -111,7 +117,7 @@ class NotebookLMPyAdapter(NotebookLMAdapter):
         topic: str,
         sources: List[str],
         language: str = "en",
-        timeout_seconds: int = 1200,
+        timeout_seconds: int = DEFAULT_TIMEOUT_SECONDS,
     ) -> AudioResult:
         if self._client_error:
             return AudioResult(

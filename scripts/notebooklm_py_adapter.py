@@ -1,47 +1,110 @@
-"""Minimal notebooklm-py adapter (v0.4.0).
+"""NotebookLM adapter backed by notebooklm-py (v0.4.1).
 
-Goal:
-- Provide a concrete adapter skeleton against NotebookLMAdapter interface.
-- Keep behavior explicit when dependency/API surface is unavailable.
+This adapter implements real audio generation flow:
+1) Create notebook
+2) Add URL sources
+3) Generate audio artifact
+4) Wait for completion
+5) Download audio to local file
 
-Notes:
-- This module is intentionally defensive because third-party package APIs vary.
-- Replace placeholder method mapping once your notebooklm-py version is pinned.
+Prerequisites:
+- Install dependency: `pip install notebooklm-py==0.3.2`
+- Authenticate NotebookLM once and store auth state (see notebooklm-py docs)
+- Optional env vars:
+  - NLM_STORAGE_PATH: custom auth storage_state.json path
+  - NLM_OUTPUT_DIR: directory for downloaded artifacts
 """
 
 from __future__ import annotations
 
+import asyncio
+import os
+import time
 from dataclasses import asdict
+from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from adapter_interface import AudioResult, NotebookLMAdapter
 
 
 class NotebookLMPyAdapter(NotebookLMAdapter):
-    def __init__(self, api_key: Optional[str] = None) -> None:
-        self.api_key = api_key
-        self._client = None
+    def __init__(self, storage_path: Optional[str] = None, output_dir: Optional[str] = None) -> None:
+        self.storage_path = storage_path or os.getenv("NLM_STORAGE_PATH")
+        self.output_dir = Path(output_dir or os.getenv("NLM_OUTPUT_DIR", "/tmp/notebooklm-audio"))
+        self.output_dir.mkdir(parents=True, exist_ok=True)
         self._client_error = None
-        self._init_client()
 
-    def _init_client(self) -> None:
         try:
-            # Expected external dependency (community package).
-            # Example install target (to be validated/pinned by maintainer):
-            #   pip install notebooklm-py
-            from notebooklm_py import NotebookLM  # type: ignore
-
-            self._client = NotebookLM(api_key=self.api_key) if self.api_key else NotebookLM()
+            import notebooklm  # noqa: F401
         except Exception as e:  # pragma: no cover
             self._client_error = str(e)
-            self._client = None
 
     def _dep_error(self, code: str = "NLM_ADAPTER_DEP_MISSING") -> Dict[str, Any]:
         return {
             "ok": False,
             "error_code": code,
-            "error_message": self._client_error or "notebooklm-py dependency unavailable",
+            "error_message": self._client_error or "notebooklm dependency unavailable",
         }
+
+    async def _create_client(self):
+        from notebooklm import NotebookLMClient
+
+        if self.storage_path:
+            return await NotebookLMClient.from_storage(path=self.storage_path)
+        return await NotebookLMClient.from_storage()
+
+    async def _generate_audio_async(
+        self,
+        topic: str,
+        sources: List[str],
+        language: str,
+        timeout_seconds: int,
+    ) -> AudioResult:
+        from notebooklm import RateLimitError, RPCTimeoutError
+
+        client = await self._create_client()
+        async with client:
+            nb = await client.notebooks.create(title=f"audio-{topic[:40]}")
+            notebook_id = nb.id
+
+            source_ids: List[str] = []
+            for url in sources:
+                src = await client.sources.add_url(notebook_id, url, wait=True, wait_timeout=180.0)
+                source_ids.append(src.id)
+
+            gen = await client.artifacts.generate_audio(
+                notebook_id=notebook_id,
+                source_ids=source_ids or None,
+                language=language,
+            )
+
+            try:
+                final = await client.artifacts.wait_for_completion(
+                    notebook_id=notebook_id,
+                    task_id=gen.task_id,
+                    timeout=float(timeout_seconds),
+                )
+            except RPCTimeoutError as e:
+                return AudioResult(status="fail", error_code="NLM_PENDING_TIMEOUT", error_message=str(e))
+            except RateLimitError as e:
+                return AudioResult(status="fail", error_code="NLM_RATE_LIMITED", error_message=str(e))
+
+            if final.status.lower() != "success":
+                return AudioResult(
+                    status="fail",
+                    error_code=final.error_code or "NLM_RPC_CREATE_ARTIFACT_FAILED",
+                    error_message=final.error or f"status={final.status}",
+                )
+
+            out = self.output_dir / f"{topic[:30].replace(' ', '_')}-{int(time.time())}.mp3"
+            try:
+                saved = await client.artifacts.download_audio(
+                    notebook_id=notebook_id,
+                    output_path=str(out),
+                )
+                return AudioResult(status="success", artifact=saved, fallback_used=False)
+            except Exception as e:
+                return AudioResult(status="fail", error_code="NLM_DOWNLOAD_FAILED", error_message=str(e))
 
     def generate_audio(
         self,
@@ -50,65 +113,52 @@ class NotebookLMPyAdapter(NotebookLMAdapter):
         language: str = "en",
         timeout_seconds: int = 600,
     ) -> AudioResult:
-        if not self._client:
+        if self._client_error:
             return AudioResult(
                 status="fail",
                 error_code="NLM_ADAPTER_DEP_MISSING",
-                error_message=self._client_error or "notebooklm-py unavailable",
+                error_message=self._client_error,
             )
+
+        if not sources:
+            return AudioResult(status="fail", error_code="NLM_NO_SOURCES", error_message="sources is empty")
 
         try:
-            # Placeholder flow for unknown API shapes.
-            # Maintainer should replace with pinned notebooklm-py calls.
-            if hasattr(self._client, "generate_audio"):
-                out = self._client.generate_audio(
-                    topic=topic,
-                    sources=sources,
-                    language=language,
-                    timeout_seconds=timeout_seconds,
-                )
-                artifact = out.get("artifact") if isinstance(out, dict) else getattr(out, "artifact", None)
-                if artifact:
-                    return AudioResult(status="success", artifact=str(artifact), fallback_used=False)
-
-            return AudioResult(
-                status="fail",
-                error_code="NLM_ADAPTER_METHOD_UNMAPPED",
-                error_message="Map notebooklm-py audio method in scripts/notebooklm_py_adapter.py",
-            )
+            return asyncio.run(self._generate_audio_async(topic, sources, language, timeout_seconds))
         except Exception as e:
             return AudioResult(status="fail", error_code="NLM_ADAPTER_RUNTIME_ERROR", error_message=str(e))
 
+    # Keep non-audio methods explicit until mapped.
     def generate_report(self, topic: str, sources: List[str], language: str = "zh-Hant") -> Dict[str, Any]:
-        if not self._client:
+        if self._client_error:
             return self._dep_error()
         return {
             "ok": False,
             "error_code": "NLM_ADAPTER_METHOD_UNMAPPED",
-            "error_message": "Map report generation for your notebooklm-py version",
+            "error_message": "Report mapping intentionally deferred in v0.4.1",
             "topic": topic,
             "language": language,
             "sources": sources,
         }
 
     def generate_quiz(self, report_text: str, language: str = "zh-Hant") -> Dict[str, Any]:
-        if not self._client:
+        if self._client_error:
             return self._dep_error()
         return {
             "ok": False,
             "error_code": "NLM_ADAPTER_METHOD_UNMAPPED",
-            "error_message": "Map quiz generation for your notebooklm-py version",
+            "error_message": "Quiz mapping intentionally deferred in v0.4.1",
             "language": language,
             "report_text_preview": report_text[:120],
         }
 
     def generate_flashcards(self, report_text: str, language: str = "zh-Hant") -> Dict[str, Any]:
-        if not self._client:
+        if self._client_error:
             return self._dep_error()
         return {
             "ok": False,
             "error_code": "NLM_ADAPTER_METHOD_UNMAPPED",
-            "error_message": "Map flashcards generation for your notebooklm-py version",
+            "error_message": "Flashcards mapping intentionally deferred in v0.4.1",
             "language": language,
             "report_text_preview": report_text[:120],
         }
@@ -116,9 +166,9 @@ class NotebookLMPyAdapter(NotebookLMAdapter):
 
 def smoke_test() -> Dict[str, Any]:
     adapter = NotebookLMPyAdapter()
-    audio = adapter.generate_audio(topic="smoke-test", sources=["https://example.com"], language="en")
+    audio = adapter.generate_audio(topic="smoke-test", sources=["https://example.com"], language="en", timeout_seconds=30)
     return {
-        "adapter_ready": adapter._client is not None,
+        "adapter_dependency_ready": adapter._client_error is None,
         "audio_result": asdict(audio),
     }
 

@@ -1,0 +1,161 @@
+"""CLI interface for NotebookLM automation.
+
+Command structure:
+  notebooklm login                    # Authenticate
+  notebooklm use <notebook_id>        # Set current notebook context
+  notebooklm status                   # Show current context
+  notebooklm list                     # List notebooks
+  notebooklm create <title>           # Create notebook
+  notebooklm ask <question>           # Ask the current notebook a question
+
+  notebooklm source <command>         # Source operations
+  notebooklm artifact <command>       # Artifact management
+  notebooklm generate <type>          # Generate content
+  notebooklm download <type>          # Download content
+  notebooklm note <command>           # Note operations
+  notebooklm research <command>       # Research status/wait
+
+LLM-friendly design:
+  # Set context once, then use simple commands
+  notebooklm use nb123
+  notebooklm generate video "a funny explainer for kids"
+  notebooklm generate audio "deep dive focusing on chapter 3"
+  notebooklm ask "what are the key themes?"
+"""
+
+import asyncio
+import logging
+import os
+import sys
+from pathlib import Path
+
+# =============================================================================
+# WINDOWS COMPATIBILITY FIXES (issue #75, #79, #80)
+# Must be applied before any async code runs
+# =============================================================================
+
+if sys.platform == "win32":
+    # Fix #79: Windows asyncio ProactorEventLoop can hang indefinitely at IOCP layer
+    # (GetQueuedCompletionStatus) in certain environments like Sandboxie.
+    # SelectorEventLoop avoids this issue.
+    import asyncio
+
+    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+
+    # Fix #80: Non-English Windows systems (cp950, cp932, etc.) can fail with
+    # UnicodeEncodeError when outputting Unicode characters like checkmarks.
+    # Setting PYTHONUTF8 ensures consistent UTF-8 encoding.
+    os.environ.setdefault("PYTHONUTF8", "1")
+
+import click
+
+from . import __version__
+from .auth import DEFAULT_STORAGE_PATH
+
+# Import command groups from cli package
+from .cli import (
+    artifact,
+    download,
+    generate,
+    language,
+    note,
+    register_chat_commands,
+    register_notebook_commands,
+    # Register functions for top-level commands
+    register_session_commands,
+    research,
+    share,
+    skill,
+    source,
+)
+from .cli.grouped import SectionedGroup
+
+# Import helpers needed for backward compatibility with tests
+
+
+# =============================================================================
+# MAIN CLI GROUP
+# =============================================================================
+
+
+@click.group(cls=SectionedGroup)
+@click.version_option(version=__version__, prog_name="NotebookLM CLI")
+@click.option(
+    "--storage",
+    type=click.Path(exists=False),
+    default=None,
+    help=f"Path to storage_state.json (default: {DEFAULT_STORAGE_PATH})",
+)
+@click.option(
+    "-v",
+    "--verbose",
+    count=True,
+    help="Increase verbosity (-v for INFO, -vv for DEBUG)",
+)
+@click.pass_context
+def cli(ctx, storage, verbose):
+    """NotebookLM CLI.
+
+    \b
+    Quick start:
+      notebooklm login              # Authenticate first
+      notebooklm list               # List your notebooks
+      notebooklm create "My Notes"  # Create a notebook
+      notebooklm ask "Hi"           # Ask the current notebook a question
+
+    \b
+    Tip: Use partial notebook IDs (e.g., 'notebooklm use abc' matches 'abc123...')
+    """
+    # Configure logging based on verbosity: -v for INFO, -vv+ for DEBUG
+    if verbose >= 2:
+        logging.getLogger("notebooklm").setLevel(logging.DEBUG)
+    elif verbose == 1:
+        logging.getLogger("notebooklm").setLevel(logging.INFO)
+
+    ctx.ensure_object(dict)
+    ctx.obj["storage_path"] = Path(storage) if storage else None
+
+
+# =============================================================================
+# REGISTER COMMANDS
+# =============================================================================
+
+# Register top-level commands from modules
+register_session_commands(cli)
+register_notebook_commands(cli)
+register_chat_commands(cli)
+
+# Register command groups (subcommand style)
+cli.add_command(source)
+cli.add_command(artifact)
+cli.add_command(generate)
+cli.add_command(download)
+cli.add_command(note)
+cli.add_command(share)
+cli.add_command(skill)
+cli.add_command(research)
+cli.add_command(language)
+
+
+# =============================================================================
+# MAIN ENTRY POINT
+# =============================================================================
+
+
+def main():
+    # Windows-specific fixes
+    if sys.platform == "win32":
+        # Force UTF-8 encoding for Unicode output on non-English Windows systems
+        # Prevents UnicodeEncodeError when displaying Unicode characters (✓, ✗, box drawing)
+        # on systems with legacy encodings (cp950, cp932, cp936, etc.)
+        os.environ.setdefault("PYTHONUTF8", "1")
+
+        # Fix asyncio hanging issue - use WindowsSelectorEventLoopPolicy instead of
+        # default ProactorEventLoop to avoid IOCP blocking on network operations
+        asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+
+    cli()
+
+
+if __name__ == "__main__":
+    main()

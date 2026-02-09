@@ -38,6 +38,8 @@ notebooklm-studio/
 
 1. Keep `SKILL.md` + `references/` in your OpenClaw skills path, or
 2. Distribute/import `notebooklm-studio.skill` package.
+3. For adapter execution, install pinned dependency:
+   - `pip install -r requirements.txt`
 
 Then invoke workflows through your orchestrator agent or cron-triggered isolated agent.
 
@@ -59,6 +61,7 @@ Then invoke workflows through your orchestrator agent or cron-triggered isolated
 
 ## Version
 
+- v0.4.1 (pinned notebooklm-py + real audio mapping)
 - v0.4.0 (notebooklm-py adapter scaffold + smoke test)
 - v0.3.1 (audio post-process runner + Telegram payload bridge)
 - v0.3.0 (ffmpeg compression + telegram delivery contract)

@@ -1,12 +1,4 @@
-{
-  "mode": "study-pack",
-  "topic": "System Design",
-  "sources": [
-    "https://martinfowler.com/articles/patterns-of-distributed-systems/"
-  ],
-  "audio_language": "en",
-  "report_language": "zh-Hant",
-  "audience_level": "intermediate",
-  "delivery_target": "telegram:-5204504124",
-  "deadline": "20:00 Asia/Taipei"
-}
+[
+  {"type": "url", "content": "https://martinfowler.com/articles/patterns-of-distributed-systems/"},
+  {"type": "youtube", "content": "https://www.youtube.com/watch?v=UEAMfLPZZhE"}
+]

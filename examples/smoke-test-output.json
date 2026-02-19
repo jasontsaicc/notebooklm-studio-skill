@@ -1,10 +1,5 @@
 {
-  "adapter_ready": false,
-  "audio_result": {
-    "status": "fail",
-    "artifact": null,
-    "fallback_used": false,
-    "error_code": "NLM_ADAPTER_DEP_MISSING",
-    "error_message": "No module named 'notebooklm_py'"
-  }
+  "adapter_dependency_ready": true,
+  "output_dir": "/tmp/notebooklm-output",
+  "storage_path": "(default)"
 }

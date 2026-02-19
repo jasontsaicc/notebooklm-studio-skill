@@ -5,6 +5,7 @@ Thumbs.db
 # Python
 __pycache__/
 *.pyc
+*.pyo
 
 # Editor
 .vscode/
@@ -16,3 +17,10 @@ __pycache__/
 
 # Python venv
 .venv/
+
+# Output artifacts
+output/
+
+# Secrets
+storage_state.json
+.env

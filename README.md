@@ -1,80 +1,173 @@
-# notebooklm-studio (OpenClaw Skill)
+# OpenClaw NotebookLM Studio Skill
 
-Reusable NotebookLM workflow skill for generating:
-- podcast audio (audio-first supported)
-- report summaries
-- quiz sets
-- flashcards
-- full daily packs (with fallback policy)
+Upload articles, notes, or files from Telegram via OpenClaw Bot to Google NotebookLM — automatically generate podcasts, reports, quizzes, flashcards, mind maps, and slides, then deliver results back to Telegram.
 
-## Repository structure
+## Features
 
-```text
-notebooklm-studio/
-├── SKILL.md
-├── references/
-│   ├── modes.md
-│   ├── output-contracts.md
-│   ├── audio-sla.md
-│   ├── telegram-delivery.md
-│   ├── adapter-notes.md
-│   ├── auth-and-transfer.md
-│   └── deadline-fallback-policy.md
+- **6 output modes**: podcast-only, report-only, study-pack, full-pack, explore-pack, all-in-one
+- **All source types**: URLs, YouTube, text notes, PDF, Word, audio, images, Google Drive
+- **Telegram integration**: Send content → get results back in the same chat
+- **Reliability**: Auto-retry, timeout handling, graceful degradation (text artifacts always delivered)
+- **Audio compression**: ffmpeg post-processing for Telegram-friendly file sizes
+- **Multi-language**: Default zh-Hant for text, en for podcasts (configurable)
+
+## Repository Structure
+
+```
+openclaw-notebooklm-studio-skill/
+├── SKILL.md                        # OpenClaw Skill definition
+├── requirements.txt                # Python dependencies
 ├── scripts/
-│   ├── README.md
-│   ├── adapter_interface.py
-│   ├── notebooklm_py_adapter.py
-│   ├── compress_audio.sh
-│   ├── run_audio_postprocess.py
-│   └── send_telegram_audio_stub.py
-└── notebooklm-studio.skill
+│   ├── adapter_interface.py        # Abstract adapter interface
+│   ├── notebooklm_adapter.py       # notebooklm-py adapter (all artifact types)
+│   ├── run_pipeline.py             # Main pipeline orchestrator
+│   ├── compress_audio.sh           # ffmpeg audio compression
+│   └── build_delivery_payload.py   # Telegram delivery payload builder
+├── references/
+│   ├── modes.md                    # Output mode definitions
+│   ├── output-contracts.md         # Artifact format specifications
+│   ├── source-types.md             # Supported source types & detection rules
+│   ├── telegram-delivery.md        # Telegram delivery contract
+│   └── auth-setup.md               # Authentication & setup guide
+└── examples/
+    ├── devops-input.json           # Example: DevOps sources
+    ├── system-design-input.json    # Example: System Design sources
+    ├── payload-sample.json         # Example: delivery payload
+    └── smoke-test-output.json      # Example: smoke test output
 ```
 
-## What this skill does
+## Quick Start
 
-- Defines output modes (`podcast-only`, `report-only`, `study-pack`, `full-pack`)
-- Enforces reliability policy (retry, timeout, fallback)
-- Standardizes output contracts for report/quiz/flashcards/podcast
+### 1. Install dependencies
 
-## Install / use
+```bash
+pip install -r requirements.txt
 
-1. Keep `SKILL.md` + `references/` in your OpenClaw skills path, or
-2. Distribute/import `notebooklm-studio.skill` package.
-3. For adapter execution, install pinned dependency:
-   - `pip install -r requirements.txt`
-4. Prepare NotebookLM auth storage state (`storage_state.json`) and transfer it to OpenClaw host.
-   - See `references/auth-and-transfer.md`
+# First-time setup (browser login)
+pip install "notebooklm-py[browser]"
+playwright install chromium
+```
 
-Then invoke workflows through your orchestrator agent or cron-triggered isolated agent.
+### 2. Authenticate NotebookLM
 
-## Audio-first behavior
+```bash
+notebooklm login
+```
 
-- Prioritize podcast generation first.
-- Retry transient failures up to 2 times.
-- If podcast still fails, trigger fallback and still deliver on time.
-- Post-process audio with ffmpeg before Telegram upload.
-- Include normalized error code and fallback note in delivery.
-- See `references/audio-sla.md`, `references/telegram-delivery.md`, and `references/deadline-fallback-policy.md` for SLA/delivery/deadline behavior.
+See [references/auth-setup.md](references/auth-setup.md) for remote server setup.
 
-## Examples
+### 3. Verify setup
 
-- `examples/devops-input.json`
-- `examples/system-design-input.json`
-- `examples/payload-sample.json` (OpenClaw message payload after audio post-process)
-- `examples/smoke-test-output.json` (expected output when adapter dependency is missing)
+```bash
+cd scripts/
+python notebooklm_adapter.py --smoke-test
+```
 
-## Version
+### 4. Add to OpenClaw workspace
 
-- v0.4.3 (fast-fail on create_artifact failure / empty task_id)
-- v0.4.1 (pinned notebooklm-py + real audio mapping)
-- v0.4.0 (notebooklm-py adapter scaffold + smoke test)
-- v0.3.1 (audio post-process runner + Telegram payload bridge)
-- v0.3.0 (ffmpeg compression + telegram delivery contract)
-- v0.2.0 (adapter interface + audio SLA)
-- v0.1.1 (license + examples + audio-first docs)
-- v0.1.0 (initial GitHub-ready package)
+Copy or symlink this skill into your OpenClaw skills directory:
 
-## Notes
+```bash
+ln -s /path/to/openclaw-notebooklm-studio-skill /path/to/openclaw/skills/notebooklm-studio
+```
 
-- This repo contains skill specification and contracts.
-- If your NotebookLM automation adapter changes (API/UI), update orchestration logic accordingly.
+## Usage
+
+### Via OpenClaw Bot (Telegram)
+
+Send content to the bot in Telegram:
+
+```
+Here are some articles about Kubernetes:
+https://example.com/k8s-best-practices
+https://example.com/k8s-security-guide
+
+Generate a full-pack please.
+```
+
+The bot will:
+1. Detect source types (URLs)
+2. Create a NotebookLM notebook
+3. Import sources
+4. Generate report, quiz, flashcards, and podcast
+5. Deliver results back to Telegram
+
+### Direct CLI Usage
+
+```bash
+# Prepare sources file
+cat > sources.json << 'EOF'
+[
+  {"type": "url", "content": "https://example.com/article"},
+  {"type": "text", "content": "My notes about the topic..."}
+]
+EOF
+
+# Run pipeline
+python scripts/run_pipeline.py \
+  --mode full-pack \
+  --sources-file sources.json \
+  --notebook-title "My Study Session" \
+  --language zh-Hant \
+  --output-dir ./output
+
+# Build delivery payload
+python scripts/build_delivery_payload.py \
+  --pipeline-result output/result.json \
+  --target telegram:-5117247168 \
+  --payload-out output/delivery.json
+```
+
+## Output Modes
+
+| Mode | Artifacts | Best For |
+|------|-----------|----------|
+| `podcast-only` | Audio (MP3) | Commute listening |
+| `report-only` | Markdown report | Quick reading |
+| `study-pack` | Report + Quiz + Flashcards | Deep learning |
+| `full-pack` | Study-pack + Audio | Daily content package |
+| `explore-pack` | Report + Mind Map + Slides | Topic exploration |
+| `all-in-one` | Everything | Complete experience |
+
+## Architecture
+
+```
+Telegram User
+    │
+    ▼
+OpenClaw Bot (receives message)
+    │
+    ▼
+SKILL.md (AI Agent reads workflow)
+    │
+    ▼
+run_pipeline.py (orchestrator)
+    ├── notebooklm_adapter.py → NotebookLM API (via notebooklm-py)
+    │   ├── Create notebook
+    │   ├── Import sources (URL/text/file/Drive)
+    │   └── Generate artifacts (audio/report/quiz/flashcards/mindmap/slides)
+    └── compress_audio.sh → ffmpeg (audio post-processing)
+    │
+    ▼
+build_delivery_payload.py
+    │
+    ▼
+OpenClaw message tool → Telegram
+```
+
+## Configuration
+
+| Environment Variable | Default | Description |
+|---------------------|---------|-------------|
+| `NLM_STORAGE_PATH` | (auto) | Path to storage_state.json |
+| `NLM_OUTPUT_DIR` | `/tmp/notebooklm-output` | Output directory |
+| `NLM_TIMEOUT_SECONDS` | `1200` | Audio generation timeout |
+
+## Powered By
+
+- [notebooklm-py](https://github.com/teng-lin/notebooklm-py) — Unofficial Python API for Google NotebookLM
+- [OpenClaw](https://openclaw.ai) — AI agent platform
+
+## License
+
+MIT

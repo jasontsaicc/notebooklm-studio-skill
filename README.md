@@ -11,6 +11,12 @@ Upload articles, notes, or files from Telegram via OpenClaw Bot to Google Notebo
 - **Audio compression**: ffmpeg post-processing for Telegram-friendly file sizes
 - **Multi-language**: Default zh-Hant for text, en for podcasts (configurable)
 
+## Documentation
+
+- **[使用手冊 (Usage Guide)](docs/usage-guide.md)** — 完整中文使用手冊，涵蓋 Telegram 用法、CLI 操作、模式詳解、參數參考、疑難排解
+- **[錯誤碼參考 (Error Reference)](docs/error-reference.md)** — 所有錯誤碼的說明、常見原因、解決方案
+- **[認證設定 (Auth Setup)](references/auth-setup.md)** — NotebookLM 認證與環境設定指南
+
 ## Repository Structure
 
 ```
@@ -29,6 +35,12 @@ openclaw-notebooklm-studio-skill/
 │   ├── source-types.md             # Supported source types & detection rules
 │   ├── telegram-delivery.md        # Telegram delivery contract
 │   └── auth-setup.md               # Authentication & setup guide
+├── docs/
+│   ├── usage-guide.md              # 完整使用手冊（中文）
+│   ├── error-reference.md          # 錯誤碼參考表
+│   └── examples/                   # 進階範例
+│       ├── full-pack-output.json   # Pipeline 完整輸出範例
+│       └── all-in-one-sources.json # 混合來源範例
 └── examples/
     ├── devops-input.json           # Example: DevOps sources
     ├── system-design-input.json    # Example: System Design sources

@@ -7,7 +7,8 @@ Ensure generated artifacts are delivered to Telegram with proper formatting and 
 After `generate_audio`, always run ffmpeg compression:
 
 - Primary profile: mono, 24kHz, 64kbps MP3
-- Fallback profile (if still large): mono, 22.05kHz, 48kbps MP3
+- Fallback profile (if file > 45MB): mono, 22.05kHz, 48kbps MP3
+- Telegram Bot API file size limit: 50MB
 
 Reference script: `scripts/compress_audio.sh`
 

@@ -121,6 +121,12 @@ async def run_pipeline(args) -> Dict[str, Any]:
 
     adapter = NotebookLMStudioAdapter(output_dir=args.output_dir)
 
+    # Enrich instruction with audience level
+    instruction = args.instruction
+    if args.audience_level != "intermediate" or not instruction:
+        level_hint = f"Target audience: {args.audience_level} level."
+        instruction = f"{level_hint} {instruction}".strip()
+
     # Check dependency
     dep_check = adapter._check_dep()
     if dep_check:
@@ -166,7 +172,7 @@ async def run_pipeline(args) -> Dict[str, Any]:
             adapter=adapter,
             notebook_id=notebook_id,
             artifact_type=art_type,
-            instruction=args.instruction,
+            instruction=instruction,
             language=args.language,
             timeout=args.timeout,
             max_retries=max_retries,
@@ -187,6 +193,7 @@ async def run_pipeline(args) -> Dict[str, Any]:
         "notebook": title,
         "notebook_id": notebook_id,
         "mode": args.mode,
+        "audience_level": args.audience_level,
         "sources": {
             "imported": import_result.imported,
             "failed": import_result.failed,
@@ -221,6 +228,12 @@ def main():
         "--instruction",
         default="",
         help="Instruction for audio/report generation",
+    )
+    parser.add_argument(
+        "--audience-level",
+        default="intermediate",
+        choices=["beginner", "intermediate", "advanced"],
+        help="Audience level (default: intermediate)",
     )
     parser.add_argument(
         "--language",

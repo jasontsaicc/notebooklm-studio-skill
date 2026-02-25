@@ -19,11 +19,19 @@ from __future__ import annotations
 import argparse
 import asyncio
 import json
+import logging
 import sys
 import time
 from dataclasses import asdict
 from pathlib import Path
 from typing import Any, Dict, List
+
+log = logging.getLogger("pipeline")
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(name)s] %(message)s",
+    stream=sys.stderr,
+)
 
 # Allow imports from the scripts/ directory
 sys.path.insert(0, str(Path(__file__).parent))
@@ -115,9 +123,11 @@ async def run_pipeline(args) -> Dict[str, Any]:
         }
 
     # Load sources
+    log.info("Loading sources from %s", args.sources_file)
     sources = load_sources(args.sources_file)
     if not sources:
         return {"error": "No sources found in sources file"}
+    log.info("Loaded %d source(s)", len(sources))
 
     adapter = NotebookLMStudioAdapter(output_dir=args.output_dir)
 
@@ -140,7 +150,9 @@ async def run_pipeline(args) -> Dict[str, Any]:
     try:
         ts = time.strftime("%Y%m%d-%H%M%S")
         title = f"{args.notebook_title} {ts}"
+        log.info("Creating notebook: %s", title)
         notebook_id = await adapter.create_notebook(title)
+        log.info("Notebook created: %s", notebook_id)
     except Exception as e:
         return {
             "error": "Failed to create notebook",
@@ -149,7 +161,10 @@ async def run_pipeline(args) -> Dict[str, Any]:
         }
 
     # Import sources
+    log.info("Importing %d source(s)...", len(sources))
     import_result = await adapter.add_sources(notebook_id, sources)
+    log.info("Import done: %d imported, %d failed",
+             len(import_result.imported), len(import_result.failed))
     if not import_result.imported:
         return {
             "notebook": title,
@@ -168,6 +183,9 @@ async def run_pipeline(args) -> Dict[str, Any]:
 
     for art_type in artifact_types:
         max_retries = args.audio_retries if art_type == "audio" else 1
+        log.info("Generating artifact: %s (max_retries=%d, timeout=%ds)",
+                 art_type, max_retries, args.timeout)
+        art_start = time.time()
         result = await generate_artifact(
             adapter=adapter,
             notebook_id=notebook_id,
@@ -177,6 +195,13 @@ async def run_pipeline(args) -> Dict[str, Any]:
             timeout=args.timeout,
             max_retries=max_retries,
         )
+        art_elapsed = round(time.time() - art_start, 1)
+        log.info("Artifact %s: status=%s elapsed=%.1fs path=%s",
+                 art_type, result.status, art_elapsed,
+                 result.artifact_path or "(none)")
+        if result.status == "fail":
+            log.warning("Artifact %s failed: code=%s msg=%s",
+                        art_type, result.error_code, result.error_message)
         artifacts[art_type] = asdict(result)
         if result.status == "fail":
             errors.append(

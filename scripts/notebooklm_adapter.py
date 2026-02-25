@@ -15,11 +15,14 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 import os
 import time
 from dataclasses import asdict
 from pathlib import Path
 from typing import Any, Dict, List, Optional
+
+log = logging.getLogger("adapter")
 
 from adapter_interface import (
     ArtifactResult,
@@ -129,6 +132,8 @@ class NotebookLMStudioAdapter(NotebookLMAdapter):
 
         client = await self._create_client()
         async with client:
+            log.info("audio: requesting generation (notebook=%s, lang=%s, timeout=%ds)",
+                     notebook_id, language, timeout_seconds)
             gen = await client.artifacts.generate_audio(
                 notebook_id=notebook_id,
                 instructions=instruction or None,
@@ -138,6 +143,8 @@ class NotebookLMStudioAdapter(NotebookLMAdapter):
             # Fast-fail on immediate rejection
             gen_status = str(getattr(gen, "status", "")).lower()
             gen_task_id = str(getattr(gen, "task_id", "") or "").strip()
+            log.info("audio: generate returned status=%s task_id=%s",
+                     gen_status, gen_task_id or "(empty)")
             if gen_status == "failed" or not gen_task_id:
                 return ArtifactResult(
                     artifact_type="audio",
@@ -146,40 +153,38 @@ class NotebookLMStudioAdapter(NotebookLMAdapter):
                     error_message=f"generate_audio rejected (status={gen_status}, task_id={gen_task_id or 'empty'})",
                 )
 
-            try:
-                await client.artifacts.wait_for_completion(
-                    notebook_id=notebook_id,
-                    task_id=gen_task_id,
-                    timeout=float(timeout_seconds),
-                )
-            except Exception as e:
-                code = "NLM_PENDING_TIMEOUT"
-                if "rate" in str(e).lower():
-                    code = "NLM_RATE_LIMITED"
-                return ArtifactResult(
-                    artifact_type="audio",
-                    status="fail",
-                    error_code=code,
-                    error_message=str(e),
-                )
-
+            # WORKAROUND: wait_for_completion hangs due to notebooklm-py
+            # _is_media_ready bug (GitHub issue #111 — RPC structure mismatch).
+            # Use fixed-delay + retry download instead.
+            download_interval = 60
+            max_attempts = timeout_seconds // download_interval or 1
             out_path = self.output_dir / f"audio-{int(time.time())}.mp3"
-            try:
-                saved = await client.artifacts.download_audio(
-                    notebook_id=notebook_id, output_path=str(out_path)
-                )
-                return ArtifactResult(
-                    artifact_type="audio",
-                    status="success",
-                    artifact_path=saved,
-                )
-            except Exception as e:
-                return ArtifactResult(
-                    artifact_type="audio",
-                    status="fail",
-                    error_code="NLM_ARTIFACT_DOWNLOAD_FAILED",
-                    error_message=str(e),
-                )
+
+            for attempt in range(1, max_attempts + 1):
+                log.info("audio: waiting %ds before download attempt %d/%d...",
+                         download_interval, attempt, max_attempts)
+                await asyncio.sleep(download_interval)
+                try:
+                    log.info("audio: attempting download to %s", out_path)
+                    saved = await client.artifacts.download_audio(
+                        notebook_id=notebook_id, output_path=str(out_path)
+                    )
+                    log.info("audio: download OK — %s", saved)
+                    return ArtifactResult(
+                        artifact_type="audio",
+                        status="success",
+                        artifact_path=saved,
+                    )
+                except Exception as e:
+                    log.info("audio: download attempt %d failed: %s", attempt, e)
+                    if attempt == max_attempts:
+                        log.error("audio: all %d download attempts exhausted", max_attempts)
+                        return ArtifactResult(
+                            artifact_type="audio",
+                            status="fail",
+                            error_code="NLM_ARTIFACT_DOWNLOAD_FAILED",
+                            error_message=f"Not ready after {max_attempts} attempts: {e}",
+                        )
 
     # ── Report Generation (via chat.ask) ─────────────────────────────
 

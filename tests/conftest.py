@@ -178,7 +178,7 @@ def mock_notebooklm_client():
     client.artifacts.generate_mind_map = AsyncMock(
         return_value=make_mock_gen_result()
     )
-    client.artifacts.generate_slides = AsyncMock(
+    client.artifacts.generate_slide_deck = AsyncMock(
         return_value=make_mock_gen_result()
     )
     client.artifacts.wait_for_completion = AsyncMock(
@@ -194,7 +194,7 @@ def mock_notebooklm_client():
     client.artifacts.download_mind_map = AsyncMock(
         return_value={"label": "Root", "children": []}
     )
-    client.artifacts.download_slides = AsyncMock(return_value="/tmp/test/slides.pdf")
+    client.artifacts.download_slide_deck = AsyncMock(return_value="/tmp/test/slides.pdf")
 
     # chat
     client.chat.ask = AsyncMock(

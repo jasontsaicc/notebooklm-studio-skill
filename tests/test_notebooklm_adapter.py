@@ -351,13 +351,14 @@ class TestGenerateSlides:
     @pytest.mark.asyncio
     async def test_no_task_id(self, adapter_with_mock):
         adapter, client = adapter_with_mock
-        client.artifacts.generate_slides.return_value = make_mock_gen_result(task_id="")
+        client.artifacts.generate_slide_deck.return_value = make_mock_gen_result(task_id="")
         result = await adapter.generate_slides("nb_1")
-        assert result.status == "success"
+        assert result.status == "fail"
+        assert result.error_code == "NLM_RPC_CREATE_ARTIFACT_FAILED"
 
     @pytest.mark.asyncio
     async def test_exception(self, adapter_with_mock):
         adapter, client = adapter_with_mock
-        client.artifacts.generate_slides.side_effect = Exception("fail")
+        client.artifacts.generate_slide_deck.side_effect = Exception("fail")
         result = await adapter.generate_slides("nb_1")
         assert result.status == "fail"

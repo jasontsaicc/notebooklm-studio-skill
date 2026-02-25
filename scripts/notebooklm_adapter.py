@@ -108,7 +108,7 @@ class NotebookLMStudioAdapter(NotebookLMAdapter):
         if t in ("url", "youtube"):
             await client.sources.add_url(notebook_id, src.content, wait=True)
         elif t == "text":
-            await client.sources.add_text(notebook_id, src.content, wait=True)
+            await client.sources.add_text(notebook_id, title="Text source", content=src.content, wait=True)
         elif t in ("pdf", "word", "audio", "image"):
             await client.sources.add_file(notebook_id, src.content, wait=True)
         elif t == "drive":
@@ -336,8 +336,9 @@ class NotebookLMStudioAdapter(NotebookLMAdapter):
                         notebook_id=notebook_id, task_id=task_id
                     )
 
+                mm_out = self.output_dir / f"mindmap-{int(time.time())}.json"
                 mm_data = await client.artifacts.download_mind_map(
-                    notebook_id=notebook_id
+                    notebook_id=notebook_id, output_path=str(mm_out)
                 )
 
                 out_path = self.output_dir / f"mindmap-{int(time.time())}.json"
@@ -372,25 +373,46 @@ class NotebookLMStudioAdapter(NotebookLMAdapter):
         client = await self._create_client()
         async with client:
             try:
-                gen = await client.artifacts.generate_slides(
+                gen = await client.artifacts.generate_slide_deck(
                     notebook_id=notebook_id
                 )
                 task_id = str(getattr(gen, "task_id", "") or "").strip()
-                if task_id:
-                    await client.artifacts.wait_for_completion(
-                        notebook_id=notebook_id, task_id=task_id
+                if not task_id:
+                    return ArtifactResult(
+                        artifact_type="slides",
+                        status="fail",
+                        error_code="NLM_RPC_CREATE_ARTIFACT_FAILED",
+                        error_message="generate_slide_deck returned empty task_id",
                     )
 
+                # WORKAROUND: same _is_media_ready bug as audio (issue #111)
+                download_interval = 60
+                max_attempts = 30
                 out_path = self.output_dir / f"slides-{int(time.time())}.pdf"
-                saved = await client.artifacts.download_slides(
-                    notebook_id=notebook_id, output_path=str(out_path)
-                )
 
-                return ArtifactResult(
-                    artifact_type="slides",
-                    status="success",
-                    artifact_path=saved,
-                )
+                for attempt in range(1, max_attempts + 1):
+                    log.info("slides: waiting %ds before download attempt %d/%d...",
+                             download_interval, attempt, max_attempts)
+                    await asyncio.sleep(download_interval)
+                    try:
+                        saved = await client.artifacts.download_slide_deck(
+                            notebook_id=notebook_id, output_path=str(out_path)
+                        )
+                        log.info("slides: download OK — %s", saved)
+                        return ArtifactResult(
+                            artifact_type="slides",
+                            status="success",
+                            artifact_path=saved,
+                        )
+                    except Exception as e:
+                        log.info("slides: download attempt %d failed: %s", attempt, e)
+                        if attempt == max_attempts:
+                            return ArtifactResult(
+                                artifact_type="slides",
+                                status="fail",
+                                error_code="NLM_ARTIFACT_DOWNLOAD_FAILED",
+                                error_message=f"Not ready after {max_attempts} attempts: {e}",
+                            )
             except Exception as e:
                 return ArtifactResult(
                     artifact_type="slides",

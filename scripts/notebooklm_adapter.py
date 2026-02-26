@@ -246,14 +246,9 @@ class NotebookLMStudioAdapter(NotebookLMAdapter):
                         notebook_id=notebook_id, task_id=task_id
                     )
 
-                quiz_data = await client.artifacts.download_quiz(
-                    notebook_id=notebook_id
-                )
-
                 out_path = self.output_dir / f"quiz-{int(time.time())}.json"
-                out_path.write_text(
-                    json.dumps(quiz_data, ensure_ascii=False, indent=2),
-                    encoding="utf-8",
+                await client.artifacts.download_quiz(
+                    notebook_id=notebook_id, output_path=str(out_path)
                 )
 
                 return ArtifactResult(
@@ -291,14 +286,9 @@ class NotebookLMStudioAdapter(NotebookLMAdapter):
                         notebook_id=notebook_id, task_id=task_id
                     )
 
-                fc_data = await client.artifacts.download_flashcards(
-                    notebook_id=notebook_id
-                )
-
                 out_path = self.output_dir / f"flashcards-{int(time.time())}.json"
-                out_path.write_text(
-                    json.dumps(fc_data, ensure_ascii=False, indent=2),
-                    encoding="utf-8",
+                await client.artifacts.download_flashcards(
+                    notebook_id=notebook_id, output_path=str(out_path)
                 )
 
                 return ArtifactResult(

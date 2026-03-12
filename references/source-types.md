@@ -2,16 +2,16 @@
 
 ## Source type mapping
 
-| Type     | Telegram input            | notebooklm-py method      | Notes                      |
-|----------|--------------------------|---------------------------|----------------------------|
-| url      | Paste article link       | `sources.add_url()`       | Any web article URL        |
-| youtube  | Paste YouTube link       | `sources.add_url()`       | YouTube video URL          |
-| text     | Type or paste text       | `sources.add_text()`      | Raw text / notes           |
-| pdf      | Upload .pdf file         | `sources.add_file()`      | PDF document               |
-| word     | Upload .docx file        | `sources.add_file()`      | Word document              |
-| audio    | Upload audio file        | `sources.add_file()`      | Audio recording            |
-| image    | Upload image file        | `sources.add_file()`      | Image with text content    |
-| drive    | Paste Google Drive link  | `sources.add_drive()`     | Google Drive shared file   |
+| Type     | Telegram Input            | CLI Command                           | Notes                      |
+|----------|--------------------------|---------------------------------------|----------------------------|
+| url      | Paste article link       | `source add "<url>"`                  | Any web article URL        |
+| youtube  | Paste YouTube link       | `source add "<youtube_url>"`          | YouTube video URL          |
+| text     | Type or paste text       | `source add "./temp.txt"`             | Save to .txt first, then add |
+| pdf      | Upload .pdf file         | `source add "./file.pdf"`             | PDF document               |
+| word     | Upload .docx file        | `source add "./file.docx"`            | Word document              |
+| audio    | Upload audio file        | `source add "./file.mp3"`             | Audio recording            |
+| image    | Upload image file        | `source add "./file.png"`             | Image with text content    |
+| drive    | Paste Google Drive link  | `source add-drive <file_id> "<title>"`| Google Drive shared file   |
 
 ## Auto-detection rules
 
@@ -28,14 +28,9 @@ When the user sends content via Telegram, detect the source type:
    - `.jpg` / `.jpeg` / `.png` / `.webp` extension → type: `image`
 3. **Plain text** (no URL, no file) → type: `text`
 
-## sources.json format
+## CLI notes
 
-```json
-[
-  {"type": "url", "content": "https://example.com/article"},
-  {"type": "youtube", "content": "https://youtube.com/watch?v=xxx"},
-  {"type": "text", "content": "My learning notes about..."},
-  {"type": "pdf", "content": "/path/to/document.pdf"},
-  {"type": "drive", "content": "https://drive.google.com/file/d/xxx"}
-]
-```
+- `source add` auto-detects content type (URL vs file path)
+- Plain text must be saved to a `.txt` file first — CLI does not support stdin
+- Google Drive sources use `source add-drive <file_id> "<title>"`
+- After adding, use `source list` to verify sources were imported

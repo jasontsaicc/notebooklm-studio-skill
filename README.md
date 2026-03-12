@@ -1,184 +1,136 @@
-# OpenClaw NotebookLM Studio Skill
+# NotebookLM Studio Skill
 
-Upload articles, notes, or files from Telegram via OpenClaw Bot to Google NotebookLM — automatically generate podcasts, reports, quizzes, flashcards, mind maps, and slides, then deliver results back to Telegram.
+AI agent skill for Google NotebookLM — import sources (URLs, YouTube, files, text) and generate podcasts, videos, reports, quizzes, flashcards, mind maps, slides, infographics, and data tables.
+
+Works with **Claude Code**, **OpenClaw**, **Codex**, and any agent that supports the [Agent Skills](https://agentskills.io) specification.
 
 ## Features
 
-- **6 output modes**: podcast-only, report-only, study-pack, full-pack, explore-pack, all-in-one
+- **9 artifact types**: audio, video, report, quiz, flashcards, mind-map, slide-deck, infographic, data-table
+- **No default mode**: user selects which artifacts to generate
 - **All source types**: URLs, YouTube, text notes, PDF, Word, audio, images, Google Drive
-- **Telegram integration**: Send content → get results back in the same chat
-- **Reliability**: Auto-retry, timeout handling, graceful degradation (text artifacts always delivered)
-- **Audio compression**: ffmpeg post-processing for Telegram-friendly file sizes
-- **Multi-language**: Default zh-Hant for text, en for podcasts (configurable)
+- **Cross-platform**: works with any AI agent that reads SKILL.md
+- **Telegram delivery**: optional, via OpenClaw `message` tool
+- **Audio compression**: ffmpeg post-processing for large file handling
+- **CLI-driven**: uses `notebooklm` CLI directly — no custom Python wrappers
 
-## Documentation
+## Setup
 
-- **[使用手冊 (Usage Guide)](docs/usage-guide.md)** — 完整中文使用手冊，涵蓋 Telegram 用法、CLI 操作、模式詳解、參數參考、疑難排解
-- **[錯誤碼參考 (Error Reference)](docs/error-reference.md)** — 所有錯誤碼的說明、常見原因、解決方案
-- **[認證設定 (Auth Setup)](references/auth-setup.md)** — NotebookLM 認證與環境設定指南
-
-## Repository Structure
-
-```
-openclaw-notebooklm-studio-skill/
-├── SKILL.md                        # OpenClaw Skill definition
-├── requirements.txt                # Python dependencies
-├── scripts/
-│   ├── adapter_interface.py        # Abstract adapter interface
-│   ├── notebooklm_adapter.py       # notebooklm-py adapter (all artifact types)
-│   ├── run_pipeline.py             # Main pipeline orchestrator
-│   ├── compress_audio.sh           # ffmpeg audio compression
-│   └── build_delivery_payload.py   # Telegram delivery payload builder
-├── references/
-│   ├── modes.md                    # Output mode definitions
-│   ├── output-contracts.md         # Artifact format specifications
-│   ├── source-types.md             # Supported source types & detection rules
-│   ├── telegram-delivery.md        # Telegram delivery contract
-│   └── auth-setup.md               # Authentication & setup guide
-├── docs/
-│   ├── usage-guide.md              # 完整使用手冊（中文）
-│   ├── error-reference.md          # 錯誤碼參考表
-│   └── examples/                   # 進階範例
-│       ├── full-pack-output.json   # Pipeline 完整輸出範例
-│       └── all-in-one-sources.json # 混合來源範例
-└── examples/
-    ├── devops-input.json           # Example: DevOps sources
-    ├── system-design-input.json    # Example: System Design sources
-    ├── payload-sample.json         # Example: delivery payload
-    └── smoke-test-output.json      # Example: smoke test output
-```
-
-## Quick Start
-
-### 1. Install dependencies
+### 1. Clone with submodule
 
 ```bash
-pip install -r requirements.txt
+git clone --recurse-submodules https://github.com/<your-org>/notebooklm-studio-skill.git
+# Or if already cloned:
+git submodule update --init
+```
 
-# First-time setup (browser login)
-pip install "notebooklm-py[browser]"
+### 2. Install notebooklm-py
+
+```bash
+cd notebooklm-py && pip install -e ".[browser]" && cd ..
 playwright install chromium
 ```
 
-### 2. Authenticate NotebookLM
+### 3. Authenticate
 
 ```bash
 notebooklm login
 ```
 
-See [references/auth-setup.md](references/auth-setup.md) for remote server setup.
-
-### 3. Verify setup
+This opens a browser for Google account login. On remote servers, run login locally and transfer `storage_state.json`:
 
 ```bash
-cd scripts/
-python notebooklm_adapter.py --smoke-test
+scp ~/.notebooklm/storage_state.json user@server:~/.notebooklm/storage_state.json
+chmod 600 ~/.notebooklm/storage_state.json
 ```
 
-### 4. Add to OpenClaw workspace
-
-Copy or symlink this skill into your OpenClaw skills directory:
+### 4. Verify
 
 ```bash
-ln -s /path/to/openclaw-notebooklm-studio-skill /path/to/openclaw/skills/notebooklm-studio
+notebooklm auth check --test
 ```
 
-## Usage
+### 5. Install as agent skill
 
-### Via OpenClaw Bot (Telegram)
-
-Send content to the bot in Telegram:
-
-```
-Here are some articles about Kubernetes:
-https://example.com/k8s-best-practices
-https://example.com/k8s-security-guide
-
-Generate a full-pack please.
-```
-
-The bot will:
-1. Detect source types (URLs)
-2. Create a NotebookLM notebook
-3. Import sources
-4. Generate report, quiz, flashcards, and podcast
-5. Deliver results back to Telegram
-
-### Direct CLI Usage
-
+**Claude Code:**
 ```bash
-# Prepare sources file
-cat > sources.json << 'EOF'
-[
-  {"type": "url", "content": "https://example.com/article"},
-  {"type": "text", "content": "My notes about the topic..."}
-]
-EOF
-
-# Run pipeline
-python scripts/run_pipeline.py \
-  --mode full-pack \
-  --sources-file sources.json \
-  --notebook-title "My Study Session" \
-  --language zh-Hant \
-  --output-dir ./output
-
-# Build delivery payload
-python scripts/build_delivery_payload.py \
-  --pipeline-result output/result.json \
-  --target telegram:-5117247168 \
-  --payload-out output/delivery.json
+ln -s /path/to/notebooklm-studio-skill ~/.claude/skills/notebooklm-studio
 ```
 
-## Output Modes
+**OpenClaw:**
+```bash
+ln -s /path/to/notebooklm-studio-skill /path/to/openclaw/skills/notebooklm-studio
+```
 
-| Mode | Artifacts | Best For |
-|------|-----------|----------|
-| `podcast-only` | Audio (MP3) | Commute listening |
-| `report-only` | Markdown report | Quick reading |
-| `study-pack` | Report + Quiz + Flashcards | Deep learning |
-| `full-pack` | Study-pack + Audio | Daily content package |
-| `explore-pack` | Report + Mind Map + Slides | Topic exploration |
-| `all-in-one` | Everything | Complete experience |
+**Other agents:** Place or symlink the directory where your agent discovers skills.
 
 ## Architecture
 
 ```
-Telegram User
+User (Telegram / CLI / IDE)
     │
     ▼
-OpenClaw Bot (receives message)
+AI Agent (Claude Code / OpenClaw / Codex)
+    │  reads SKILL.md workflow
+    ▼
+notebooklm CLI (via notebooklm-py submodule)
+    ├── notebooklm create / use
+    ├── notebooklm source add
+    ├── notebooklm generate <type> --wait
+    └── notebooklm download <type>
     │
     ▼
-SKILL.md (AI Agent reads workflow)
+./output/ (local artifacts)
     │
-    ▼
-run_pipeline.py (orchestrator)
-    ├── notebooklm_adapter.py → NotebookLM API (via notebooklm-py)
-    │   ├── Create notebook
-    │   ├── Import sources (URL/text/file/Drive)
-    │   └── Generate artifacts (audio/report/quiz/flashcards/mindmap/slides)
-    └── compress_audio.sh → ffmpeg (audio post-processing)
-    │
-    ▼
-build_delivery_payload.py
-    │
-    ▼
-OpenClaw message tool → Telegram
+    ▼ (optional, OpenClaw only)
+Telegram delivery via message tool
 ```
 
-## Configuration
+## Artifact Types
 
-| Environment Variable | Default | Description |
-|---------------------|---------|-------------|
-| `NLM_STORAGE_PATH` | (auto) | Path to storage_state.json |
-| `NLM_OUTPUT_DIR` | `/tmp/notebooklm-output` | Output directory |
-| `NLM_TIMEOUT_SECONDS` | `1200` | Audio generation timeout |
+| Type | CLI Command | Est. Time | Output |
+|------|-------------|-----------|--------|
+| Audio (Podcast) | `generate audio` | 5-30 min | MP3 |
+| Video | `generate video` | 5-30 min | MP4 |
+| Report | `generate report` | 1-2 min | Markdown |
+| Quiz | `generate quiz` | 1-2 min | JSON/MD/HTML |
+| Flashcards | `generate flashcards` | 1-2 min | JSON/MD/HTML |
+| Mind Map | `generate mind-map` | Instant | JSON |
+| Slide Deck | `generate slide-deck` | 2-10 min | PDF/PPTX |
+| Infographic | `generate infographic` | 2-5 min | PNG |
+| Data Table | `generate data-table` | 1-2 min | CSV |
+
+See `references/artifacts.md` for full CLI options.
+
+## Repository Structure
+
+```
+notebooklm-studio-skill/
+├── .gitmodules                      # git submodule config
+├── .gitignore
+├── SKILL.md                         # Agent skill definition (CLI workflow)
+├── README.md
+├── LICENSE
+├── notebooklm-py/                   # git submodule (notebooklm CLI)
+├── references/
+│   ├── artifacts.md                 # 9 artifact types reference
+│   ├── source-types.md              # Source types & detection rules
+│   ├── output-contracts.md          # Output format specifications
+│   └── telegram-delivery.md         # Telegram delivery contract (OpenClaw)
+└── scripts/
+    └── compress_audio.sh            # ffmpeg audio compression
+```
+
+## Updating notebooklm-py
+
+```bash
+cd notebooklm-py && git pull origin main && cd ..
+pip install -e "notebooklm-py[browser]"
+```
 
 ## Powered By
 
-- [notebooklm-py](https://github.com/teng-lin/notebooklm-py) — Unofficial Python API for Google NotebookLM
-- [OpenClaw](https://openclaw.ai) — AI agent platform
+- [notebooklm-py](https://github.com/teng-lin/notebooklm-py) — Unofficial Python API & CLI for Google NotebookLM
 
 ## License
 

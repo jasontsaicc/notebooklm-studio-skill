@@ -1,6 +1,0 @@
-[
-  {"type": "url", "content": "https://aws.amazon.com/blogs/devops/build-health-aware-ci-cd-pipelines/"},
-  {"type": "youtube", "content": "https://www.youtube.com/watch?v=UEAMfLPZZhE"},
-  {"type": "text", "content": "重點筆記：CI/CD pipeline 的 health-aware 機制包括 canary deployment、blue-green deployment、以及 progressive delivery。核心概念是在部署過程中持續監控應用健康指標，一旦異常立即自動回滾。"},
-  {"type": "pdf", "content": "/path/to/cicd-architecture-review.pdf"}
-]

@@ -1,0 +1,3 @@
+[submodule "notebooklm-py"]
+	path = notebooklm-py
+	url = https://github.com/teng-lin/notebooklm-py.git

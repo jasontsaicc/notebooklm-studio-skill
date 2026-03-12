@@ -1,78 +1,117 @@
 ---
 name: notebooklm-studio
 description: >
-  Upload articles, notes, or files from Telegram to NotebookLM,
-  generate multi-format outputs (podcast, report, quiz, flashcards,
-  mind map, slides), and deliver results back to Telegram.
+  Import sources (URLs, YouTube, files, text) into Google NotebookLM
+  and generate user-selected artifacts: podcast, video, report, quiz,
+  flashcards, mind map, slides, infographic, data table.
   Use when the user sends content and asks to generate learning
-  materials, podcasts, or study packages.
+  materials, podcasts, videos, or study packages.
 ---
 
 # NotebookLM Studio
 
-Upload content via Telegram, generate multi-format outputs with NotebookLM, deliver results back.
+Import sources into NotebookLM, generate user-selected artifacts via CLI, download results locally.
 
 ## Inputs
 
 Collect from user message (ask only for missing fields):
 
 - **Sources**: URLs, YouTube links, text notes, or file attachments (PDF, Word, audio, image, Google Drive link)
-- **Mode** (optional, default: `full-pack`): `podcast-only` | `report-only` | `study-pack` | `full-pack` | `explore-pack` | `all-in-one`
-- **Language** (optional, default: `zh-Hant` for text, `en` for podcast)
-- **Audience level** (optional, default: `intermediate`): `beginner` | `intermediate` | `advanced`
-- **Telegram target** (optional, use current chat if not specified)
+- **Artifacts**: User selects from 9 types (no default — always ask):
+  - `audio` (podcast), `video`, `report`, `quiz`, `flashcards`, `mind-map`, `slide-deck`, `infographic`, `data-table`
+- **Language** (optional, default: `zh_Hant`): applied via `notebooklm language set`
+  - ⚠️ This is a **GLOBAL** setting — affects all notebooks in the account
+- **Custom instructions** (optional): passed as description to generate commands
+- **Telegram target** (optional, OpenClaw only): chat_id for delivery
 
 See `references/source-types.md` for source type detection rules.
-See `references/modes.md` for mode-to-artifact mapping.
+See `references/artifacts.md` for all 9 artifact types and CLI options.
 
 ## Workflow
 
-1. **Parse input** — Detect source types from user message (URLs, files, text). Auto-detect mode if not specified.
-2. **Prepare sources file** — Save sources as JSON: `[{"type": "url", "content": "https://..."}]`
-3. **Run pipeline** — Execute:
+1. **Parse input** — Detect source types from user message (URLs, files, text). Confirm which artifacts to generate.
+
+2. **Create notebook** —
    ```bash
-   python scripts/run_pipeline.py \
-     --mode <mode> \
-     --sources-file <sources.json> \
-     --notebook-title "<topic>" \
-     --instruction "<user instruction or default>" \
-     --language <language> \
-     --output-dir ./output
+   notebooklm create "<topic> <timestamp>"
+   notebooklm use <notebook_id>
    ```
-4. **Validate output** — Check pipeline JSON result for artifact status.
-5. **Build delivery** — Execute:
+
+3. **Set language** —
    ```bash
-   python scripts/build_delivery_payload.py \
-     --pipeline-result output/result.json \
-     --target telegram:<chat_id> \
-     --payload-out output/delivery.json
+   notebooklm language set zh_Hant
    ```
-6. **Deliver to Telegram** — Use OpenClaw `message` tool for each delivery action:
-   - Text summary first
-   - File artifacts in order (report → quiz → flashcards → mindmap → slides → audio)
+   ⚠️ GLOBAL setting — always set explicitly to avoid residual from previous runs.
 
-## Output modes
+4. **Add sources** — For each source:
+   ```bash
+   # URL, YouTube, or file path
+   notebooklm source add "<url_or_filepath>"
 
-| Mode          | Artifacts                                          |
-|---------------|----------------------------------------------------|
-| podcast-only  | Audio (MP3)                                        |
-| report-only   | Markdown report                                    |
-| study-pack    | Report + Quiz (JSON) + Flashcards (JSON)           |
-| full-pack     | Report + Quiz + Flashcards + Audio (best effort)   |
-| explore-pack  | Report + Mind Map (JSON) + Slides                  |
-| all-in-one    | All artifacts                                      |
+   # Google Drive
+   notebooklm source add-drive <file_id> "<title>"
+   ```
+   For plain text → save to a `.txt` file first, then `source add "./temp_text.txt"`.
 
-## Reliability policy (mandatory)
+5. **Generate artifacts** — In speed order (fast first):
+   ```bash
+   # Sync (instant)
+   notebooklm generate mind-map
 
-- Retry up to 2 times on transient errors.
-- Audio generation timeout: 1200 seconds.
-- Never block text artifact delivery on audio failure.
-- Capture failure reason/code in final delivery.
+   # Fast async (1-2 min)
+   notebooklm generate report --format study-guide --wait
+   notebooklm generate quiz --difficulty medium --wait
+   notebooklm generate flashcards --wait
+   notebooklm generate data-table "describe table structure" --wait
+
+   # Medium async (2-10 min)
+   notebooklm generate infographic --orientation landscape --wait
+   notebooklm generate slide-deck --format detailed --wait
+
+   # Slow async (5-30 min) — warn user about wait time
+   notebooklm generate video --style auto --wait
+   notebooklm generate audio "custom instructions" --format deep-dive --wait
+   ```
+   Only generate the artifacts the user requested. Skip the rest.
+
+6. **Download** — Each successful artifact:
+   ```bash
+   notebooklm download mind-map ./output/mindmap.json
+   notebooklm download report ./output/report.md
+   notebooklm download quiz --format json ./output/quiz.json
+   notebooklm download flashcards --format json ./output/flashcards.json
+   notebooklm download data-table ./output/data.csv
+   notebooklm download infographic ./output/infographic.png
+   notebooklm download slide-deck ./output/slides.pdf
+   notebooklm download video ./output/video.mp4
+   notebooklm download audio ./output/podcast.mp3
+   ```
+
+7. **Post-process** — If audio was generated, compress for file size:
+   ```bash
+   bash scripts/compress_audio.sh ./output/podcast.mp3 ./output/podcast_compressed.mp3
+   ```
+
+8. **Report results** — Present artifact status and file paths to user.
+
+9. **Deliver to Telegram** (OpenClaw only) — If `message` tool is available:
+   1. Text summary (always first)
+   2. Report → Quiz → Flashcards → Mind Map → Slides → Infographic → Data Table → Video → Audio
+
+   See `references/telegram-delivery.md` for delivery contract.
+   Skip this step if running outside OpenClaw (e.g. Claude Code, Codex).
+
+## Error handling
+
+- Retry up to **2 times** on transient errors (rate limits, timeouts).
+- **Auth errors** → stop immediately, report to user.
+- **Audio/Video failure must NOT block** text artifact delivery.
+- Capture failure reason in delivery status.
 
 Fallback order:
-1. Deliver text artifacts on time.
-2. Append "audio generation failed" note with reason.
-3. Suggest retry window.
+1. Deliver all completed text artifacts on time.
+2. Append failure notes for any failed artifacts with reason.
+3. Suggest retry window for failed long-running artifacts.
 
 ## Quality gate
 
@@ -88,7 +127,7 @@ See `references/output-contracts.md` for format specifications.
 ## Delivery template
 
 1. Selection rationale (<=3 bullets)
-2. Artifact list with paths/status
+2. Artifact list with paths/status (all 9 types if applicable)
 3. Key takeaways (3-5 bullets)
 4. Failures + fallback note (if any)
 5. One discussion question

@@ -34,7 +34,7 @@ notebooklm generate audio [description] \
 
 **Download:**
 ```bash
-notebooklm download audio ./output/podcast.mp3
+notebooklm download audio ./output/<slug>/podcast.mp3
 ```
 
 **Options:**
@@ -71,7 +71,7 @@ notebooklm generate cinematic-video [description] --wait
 
 **Download:**
 ```bash
-notebooklm download video ./output/video.mp4
+notebooklm download video ./output/<slug>/video.mp4
 ```
 
 **Options:**
@@ -100,7 +100,7 @@ notebooklm generate report [description] \
 
 **Download:**
 ```bash
-notebooklm download report ./output/report.md
+notebooklm download report ./output/<slug>/report.md
 ```
 
 **Options:**
@@ -125,7 +125,7 @@ notebooklm generate quiz [description] \
 
 **Download:**
 ```bash
-notebooklm download quiz --format [json|markdown|html] ./output/quiz.json
+notebooklm download quiz --format [json|markdown|html] ./output/<slug>/quiz.json
 ```
 
 **Options:**
@@ -150,7 +150,7 @@ notebooklm generate flashcards [description] \
 
 **Download:**
 ```bash
-notebooklm download flashcards --format [json|markdown|html] ./output/flashcards.json
+notebooklm download flashcards --format [json|markdown|html] ./output/<slug>/flashcards.json
 ```
 
 **Options:**
@@ -171,7 +171,7 @@ notebooklm generate mind-map
 
 **Download:**
 ```bash
-notebooklm download mind-map ./output/mindmap.json
+notebooklm download mind-map ./output/<slug>/mindmap.json
 ```
 
 **Notes:**
@@ -196,7 +196,7 @@ notebooklm generate slide-deck [description] \
 
 **Download:**
 ```bash
-notebooklm download slide-deck --format [pdf|pptx] ./output/slides.pdf
+notebooklm download slide-deck --format [pdf|pptx] ./output/<slug>/slides.pdf
 ```
 
 **Options:**
@@ -228,7 +228,7 @@ notebooklm generate infographic [description] \
 
 **Download:**
 ```bash
-notebooklm download infographic ./output/infographic.png
+notebooklm download infographic ./output/<slug>/infographic.png
 ```
 
 **Options:**
@@ -249,7 +249,7 @@ notebooklm generate data-table <description> --wait
 
 **Download:**
 ```bash
-notebooklm download data-table ./output/data.csv
+notebooklm download data-table ./output/<slug>/data.csv
 ```
 
 **Notes:**

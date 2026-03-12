@@ -115,11 +115,11 @@ notebooklm source add "https://en.wikipedia.org/wiki/Feynman_technique"
 notebooklm generate report --format study-guide --wait
 
 # Download
-mkdir -p output
-notebooklm download report ./output/report.md
+mkdir -p output/feynman-technique
+notebooklm download report ./output/feynman-technique/report.md
 
 # Check result
-cat ./output/report.md
+cat ./output/feynman-technique/report.md
 ```
 
 If this works, your setup is complete. The AI agent will follow the same workflow automatically via SKILL.md.
@@ -140,7 +140,7 @@ notebooklm CLI (via notebooklm-py submodule)
     └── notebooklm download <type>
     │
     ▼
-./output/ (local artifacts)
+./output/<slug>/ (local artifacts per topic)
     │
     ▼ (optional, OpenClaw only)
 Telegram delivery via message tool

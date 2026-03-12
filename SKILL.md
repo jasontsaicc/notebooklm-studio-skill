@@ -37,19 +37,25 @@ See `references/artifacts.md` for all 9 artifact types and CLI options.
 
 1. **Parse input** — Detect source types from user message (URLs, files, text). Confirm which artifacts to generate.
 
-2. **Create notebook** —
+2. **Derive slug** — Based on the sources and user message, generate a short kebab-case slug (2-4 words) that captures the core topic. This slug is used for both the notebook name and the output directory.
+   - Examples: `react-server-components`, `feynman-technique`, `taiwan-semiconductor-q4`
+   - Keep it concise, lowercase, ASCII-only (transliterate non-ASCII if needed)
+   - If the user provides a topic or title, prefer that as the basis
+
+3. **Create notebook** —
    ```bash
-   notebooklm create "<topic> <timestamp>"
+   notebooklm create "<slug> <YYYYMMDD>"
    notebooklm use <notebook_id>
+   mkdir -p ./output/<slug>
    ```
 
-3. **Set language** —
+4. **Set language** —
    ```bash
    notebooklm language set zh_Hant
    ```
    ⚠️ GLOBAL setting — always set explicitly to avoid residual from previous runs.
 
-4. **Add sources** — For each source:
+5. **Add sources** — For each source:
    ```bash
    # URL, YouTube, or file path
    notebooklm source add "<url_or_filepath>"
@@ -59,7 +65,7 @@ See `references/artifacts.md` for all 9 artifact types and CLI options.
    ```
    For plain text → save to a `.txt` file first, then `source add "./temp_text.txt"`.
 
-5. **Generate artifacts** — In speed order (fast first):
+6. **Generate artifacts** — In speed order (fast first):
    ```bash
    # Sync (instant)
    notebooklm generate mind-map
@@ -80,27 +86,27 @@ See `references/artifacts.md` for all 9 artifact types and CLI options.
    ```
    Only generate the artifacts the user requested. Skip the rest.
 
-6. **Download** — Each successful artifact:
+7. **Download** — Each successful artifact into `./output/<slug>/`:
    ```bash
-   notebooklm download mind-map ./output/mindmap.json
-   notebooklm download report ./output/report.md
-   notebooklm download quiz --format json ./output/quiz.json
-   notebooklm download flashcards --format json ./output/flashcards.json
-   notebooklm download data-table ./output/data.csv
-   notebooklm download infographic ./output/infographic.png
-   notebooklm download slide-deck ./output/slides.pdf
-   notebooklm download video ./output/video.mp4
-   notebooklm download audio ./output/podcast.mp3
+   notebooklm download mind-map ./output/<slug>/mindmap.json
+   notebooklm download report ./output/<slug>/report.md
+   notebooklm download quiz --format json ./output/<slug>/quiz.json
+   notebooklm download flashcards --format json ./output/<slug>/flashcards.json
+   notebooklm download data-table ./output/<slug>/data.csv
+   notebooklm download infographic ./output/<slug>/infographic.png
+   notebooklm download slide-deck ./output/<slug>/slides.pdf
+   notebooklm download video ./output/<slug>/video.mp4
+   notebooklm download audio ./output/<slug>/podcast.mp3
    ```
 
-7. **Post-process** — If audio was generated, compress for file size:
+8. **Post-process** — If audio was generated, compress for file size:
    ```bash
-   bash scripts/compress_audio.sh ./output/podcast.mp3 ./output/podcast_compressed.mp3
+   bash scripts/compress_audio.sh ./output/<slug>/podcast.mp3 ./output/<slug>/podcast_compressed.mp3
    ```
 
-8. **Report results** — Present artifact status and file paths to user.
+9. **Report results** — Present artifact status and file paths to user.
 
-9. **Deliver to Telegram** (OpenClaw only) — If `message` tool is available:
+10. **Deliver to Telegram** (OpenClaw only) — If `message` tool is available:
    1. Text summary (always first)
    2. Report → Quiz → Flashcards → Mind Map → Slides → Infographic → Data Table → Video → Audio
 

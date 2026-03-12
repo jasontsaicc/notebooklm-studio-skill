@@ -10,7 +10,8 @@
       "Bash(python3 -c \"import notebooklm; print\\(notebooklm.__file__\\)\" 2>/dev/null || echo \"notebooklm not found in Python path\")",
       "Bash(find /Users/jasontsai/.claude/skills/zlib-to-notebooklm -maxdepth 2 -type f \\\\\\( -name \"SKILL.md\" -o -name \"*.md\" \\\\\\) 2>/dev/null | head -5)",
       "Bash(git -C /Users/jasontsai/Projects/notebooklm-studio-skill status)",
-      "Bash(pip show:*)"
+      "Bash(pip show:*)",
+      "Bash(npm view:*)"
     ]
   }
 }

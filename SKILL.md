@@ -27,6 +27,8 @@ Collect from user message (ask only for missing fields):
   - `audio` (podcast), `video`, `report`, `quiz`, `flashcards`, `mind-map`, `slide-deck`, `infographic`, `data-table`
 - **Language** (optional, default: `zh_Hant`): applied via `notebooklm language set`
   - ⚠️ This is a **GLOBAL** setting — affects all notebooks in the account
+- **Artifact options** (discussed in step 1b): format, style, length, difficulty, etc.
+  See `references/artifact-options.md` for all options per artifact type.
 - **Custom instructions** (optional): passed as description to generate commands
 - **Telegram target** (optional, OpenClaw only): chat_id for delivery
 
@@ -35,7 +37,31 @@ See `references/artifacts.md` for all 9 artifact types and CLI options.
 
 ## Workflow
 
-1. **Parse input** — Detect source types from user message (URLs, files, text). Confirm which artifacts to generate.
+1. **Parse input & configure artifacts** —
+
+   **1a. Select artifacts** — Detect source types from user message (URLs, files, text). Confirm which artifacts to generate.
+
+   **1b. Discuss options** — Before generating, confirm key options for each selected artifact.
+   Refer to `references/artifact-options.md` for priority levels:
+   - **ASK** options: must ask the user
+   - **OFFER** options: state the default, let user decide whether to change
+   - **SILENT** options: use defaults without asking
+   - Options already specified by the user → skip
+   - Present all questions in a single message (batch, not one-by-one)
+
+   If user says "use defaults" → skip all questions, proceed with default values immediately.
+
+   Example agent message (audio + video + report + quiz + flashcards + slides + infographic selected):
+   > Before generating, a few options to confirm:
+   > - **Podcast**: deep-dive / brief / critique / debate?
+   > - **Video**: explainer / brief / cinematic? (cinematic uses Veo 3, takes 30-40 min)
+   > - **Report**: briefing-doc / study-guide / blog-post / custom?
+   > - **Slides**: detailed / presenter?
+   > - **Quiz & Flashcards**: difficulty `medium`, quantity `standard` — adjust?
+   > - **Infographic**: style `auto`, or prefer a specific style (sketch-note, professional, bento-grid...)?
+   > - **Language**: `zh_Hant`, OK?
+   >
+   > Or just say "use defaults" to start immediately.
 
 2. **Derive slug** — Based on the sources and user message, generate a short kebab-case slug (2-4 words) that captures the core topic. This slug is used for both the notebook name and the output directory.
    - Examples: `react-server-components`, `feynman-technique`, `taiwan-semiconductor-q4`
@@ -51,9 +77,9 @@ See `references/artifacts.md` for all 9 artifact types and CLI options.
 
 4. **Set language** —
    ```bash
-   notebooklm language set zh_Hant
+   notebooklm language set <confirmed_language>
    ```
-   ⚠️ GLOBAL setting — always set explicitly to avoid residual from previous runs.
+   Use the language confirmed in step 1b. ⚠️ GLOBAL setting — always set explicitly to avoid residual from previous runs.
 
 5. **Add sources** — For each source:
    ```bash
@@ -72,28 +98,31 @@ See `references/artifacts.md` for all 9 artifact types and CLI options.
    # Sync (instant)
    notebooklm generate mind-map
 
-   # Fast async (1-2 min)
-   notebooklm generate report --format study-guide --wait
-   notebooklm generate quiz --difficulty medium --wait
-   notebooklm generate flashcards --wait
-   notebooklm generate data-table "describe table structure" --wait
+   # Fast async (1-2 min) — use options confirmed in step 1b
+   notebooklm generate report --format <chosen_format> --wait
+   notebooklm generate quiz --difficulty <chosen_difficulty> --quantity <chosen_quantity> --wait
+   notebooklm generate flashcards --difficulty <chosen_difficulty> --quantity <chosen_quantity> --wait
+   notebooklm generate data-table "<description>" --wait
 
    # Medium async (2-5 min, borderline — if timeout, retry or move to Tier 2)
-   notebooklm generate infographic --orientation landscape --wait
+   notebooklm generate infographic --style <chosen_style> --orientation <chosen_orientation> --wait
    ```
 
    **Tier 2 — Deferred** (use `--json` without `--wait`, capture `task_id` for step 9):
    ```bash
-   # Slow async — parse JSON output to extract task_id for polling
-   notebooklm generate slide-deck --format detailed --json
+   # Slow async — use options confirmed in step 1b
+   # Parse JSON output to extract task_id for polling
+   notebooklm generate slide-deck --format <chosen_format> --json
    # → {"task_id": "abc123", "status": "pending"}  ← save task_id
 
-   notebooklm generate video --style auto --json
+   notebooklm generate video --format <chosen_format> --style <chosen_style> --json
    # → {"task_id": "def456", "status": "pending"}  ← save task_id
+   # Note: if cinematic, omit --style (ignored by Veo 3)
 
-   notebooklm generate audio "custom instructions" --format deep-dive --json
+   notebooklm generate audio "<description>" --format <chosen_format> --length <chosen_length> --json
    # → {"task_id": "ghi789", "status": "pending"}  ← save task_id
    ```
+   Options accepted as defaults in step 1b can be omitted (CLI uses its own defaults).
    Parse each JSON response and save the `task_id` — you will need it in step 9.
    Only generate the artifacts the user requested. Skip the rest.
    See `references/artifacts.md` → "Deferred Generation" for Tier 2 details.
@@ -129,6 +158,7 @@ See `references/artifacts.md` for all 9 artifact types and CLI options.
    # → deliver to Telegram immediately
 
    notebooklm artifact wait <video_task_id> --timeout 1800 --interval 5 --json
+   # Note: if cinematic, use --timeout 2400 (generation takes 30-40 min)
    notebooklm download video ./output/<slug>/video.mp4
    # → deliver to Telegram immediately
 

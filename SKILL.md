@@ -6,6 +6,12 @@ description: >
   flashcards, mind map, slides, infographic, data table.
   Use when the user sends content and asks to generate learning
   materials, podcasts, videos, or study packages.
+version: 2.0.0
+metadata:
+  openclaw:
+    requires:
+      bins: [notebooklm, ffmpeg]
+    emoji: "🎙️"
 ---
 
 # NotebookLM Studio

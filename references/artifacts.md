@@ -45,6 +45,7 @@ notebooklm download audio ./output/<slug>/podcast.mp3
 
 **Notes:**
 - Longest generation time (5-30 min)
+- **Tier 2 artifact** — in agent mode, use `--json` instead of `--wait` for non-blocking generation. See "Deferred Generation" below.
 - Post-process with `scripts/compress_audio.sh` for Telegram 50MB limit
 - Default download format is MP4 container; rename to .mp3 as needed
 
@@ -81,6 +82,7 @@ notebooklm download video ./output/<slug>/video.mp4
 
 **Notes:**
 - Generation time similar to audio (5-30 min)
+- **Tier 2 artifact** — in agent mode, use `--json` instead of `--wait` for non-blocking generation. See "Deferred Generation" below.
 - Check file size for Telegram 50MB limit (no compression script available)
 
 ---
@@ -204,8 +206,11 @@ notebooklm download slide-deck --format [pdf|pptx] ./output/<slug>/slides.pdf
 - Generate `--length`: default, short
 - Download `--format`: pdf (default), pptx
 
-**Post-generation:**
-Individual slides can be revised:
+**Notes:**
+- **Tier 2 artifact** — in agent mode, use `--json` instead of `--wait` for non-blocking generation. See "Deferred Generation" below.
+
+**Post-generation (after `artifact wait` completes):**
+Individual slides can be revised only after the initial generation completes:
 ```bash
 notebooklm generate revise-slide "Move title up" --artifact <id> --slide 0 --wait
 ```
@@ -260,12 +265,16 @@ notebooklm download data-table ./output/<slug>/data.csv
 
 ## Generation Order (recommended)
 
-When generating multiple artifacts, order by speed for fastest user delivery:
+When generating multiple artifacts, use the two-tier strategy:
 
+**Tier 1 — Generate with `--wait`** (deliver immediately):
 1. **mind-map** — sync, instant
-2. **report, quiz, flashcards, data-table** — 1-2 min each, use `--wait`
-3. **infographic, slide-deck** — 2-10 min, use `--wait`
-4. **video, audio** — 5-30 min, use `--wait`, warn user about wait time
+2. **report, quiz, flashcards, data-table** — 1-2 min each
+3. **infographic** — 2-5 min
+
+**Tier 2 — Generate with `--json`** (poll + deliver as completed):
+4. **slide-deck** — 2-10 min
+5. **video, audio** — 5-30 min
 
 ## Common Options (all generate commands)
 
@@ -274,3 +283,73 @@ When generating multiple artifacts, order by speed for fastest user delivery:
 - `--language LANG` — Override output language
 - `--retry N` — Auto-retry on rate limits with exponential backoff
 - `--wait` — Block until generation completes (except mind-map which is always sync)
+
+---
+
+## Deferred Generation (Tier 2 Artifacts)
+
+For slow artifacts (slide-deck, video, audio) that risk exceeding agent timeouts, use non-blocking generation with `--json` and poll for completion.
+
+### Tier Classification
+
+| Tier | Artifacts | Strategy | Max Time |
+|------|-----------|----------|----------|
+| **Tier 1 — Immediate** | mind-map, report, quiz, flashcards, data-table, infographic* | `--wait` (blocking) | < 5 min |
+| **Tier 2 — Deferred** | slide-deck, video, audio | `--json` (non-blocking) → poll/wait | 5-30 min |
+
+*\*infographic is borderline (2-5 min). If it times out in Tier 1, fall back to Tier 2 strategy on retry.*
+
+### Step 1: Start Generation (non-blocking)
+
+Use `--json` without `--wait` to start generation and get a `task_id`:
+
+```bash
+notebooklm generate slide-deck --format detailed --json
+# → {"task_id": "abc123", "status": "pending"}
+
+notebooklm generate video --style auto --json
+# → {"task_id": "def456", "status": "pending"}
+
+notebooklm generate audio "podcast instructions" --format deep-dive --json
+# → {"task_id": "ghi789", "status": "pending"}
+```
+
+### Step 2: Wait for Completion
+
+**`artifact wait`** — blocks until the artifact completes, fails, or times out. Use this in the skill workflow:
+```bash
+notebooklm artifact wait <task_id> --timeout 1800 --interval 5 --json
+# Success → {"artifact_id": "<task_id>", "status": "completed", "url": "..."}
+# Failure → {"artifact_id": "<task_id>", "error": "GENERATION_FAILED", "message": "..."}
+# Timeout → {"artifact_id": "<task_id>", "status": "timeout", "error": "Timed out after 1800 seconds"}
+```
+
+**`artifact wait` options:**
+- `--timeout SECONDS` — Max wait time (default: 300). Use 1800 for audio/video.
+- `--interval SECONDS` — Initial poll interval (default: 2). Set to 5 for Tier 2 since these artifacts take minutes, not seconds. Uses exponential backoff internally.
+- `--json` — Machine-readable output.
+
+**Note on IDs:** The `task_id` returned by `generate --json` is the same value used as `artifact_id` in `artifact wait` responses. They are the same ID.
+
+**`artifact poll`** — single status check, does NOT block. Use only for external monitoring or debugging, not in the skill workflow:
+```bash
+notebooklm artifact poll <task_id> --json
+# → {"status": "processing"} | {"status": "completed"} | {"status": "failed"}
+```
+
+### Step 3: Download + Deliver
+
+Once `artifact wait` returns `"status": "completed"`, download and deliver:
+
+```bash
+notebooklm download audio ./output/<slug>/podcast.mp3
+bash scripts/compress_audio.sh ./output/<slug>/podcast.mp3 ./output/<slug>/podcast_compressed.mp3
+# → deliver to Telegram
+```
+
+### Notes
+
+- For media artifacts (audio, video, slide-deck, and infographic [Tier 1]), the API may report `completed` before media URLs are ready. The `artifact wait` command handles this internally by treating URL-less completions as still processing. This behavior applies to all media types regardless of tier.
+- `artifact wait` uses exponential backoff — no need to implement custom retry logic.
+- Process each Tier 2 artifact as it completes; don't wait for all before delivering.
+- If `artifact wait` times out, notify the user and suggest downloading from NotebookLM directly.

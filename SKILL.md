@@ -65,7 +65,9 @@ See `references/artifacts.md` for all 9 artifact types and CLI options.
    ```
    For plain text → save to a `.txt` file first, then `source add "./temp_text.txt"`.
 
-6. **Generate artifacts** — In speed order (fast first):
+6. **Generate artifacts** — Two-tier strategy for timeout safety:
+
+   **Tier 1 — Immediate** (use `--wait`, completes within timeout):
    ```bash
    # Sync (instant)
    notebooklm generate mind-map
@@ -76,17 +78,27 @@ See `references/artifacts.md` for all 9 artifact types and CLI options.
    notebooklm generate flashcards --wait
    notebooklm generate data-table "describe table structure" --wait
 
-   # Medium async (2-10 min)
+   # Medium async (2-5 min, borderline — if timeout, retry or move to Tier 2)
    notebooklm generate infographic --orientation landscape --wait
-   notebooklm generate slide-deck --format detailed --wait
-
-   # Slow async (5-30 min) — warn user about wait time
-   notebooklm generate video --style auto --wait
-   notebooklm generate audio "custom instructions" --format deep-dive --wait
    ```
-   Only generate the artifacts the user requested. Skip the rest.
 
-7. **Download** — Each successful artifact into `./output/<slug>/`:
+   **Tier 2 — Deferred** (use `--json` without `--wait`, capture `task_id` for step 9):
+   ```bash
+   # Slow async — parse JSON output to extract task_id for polling
+   notebooklm generate slide-deck --format detailed --json
+   # → {"task_id": "abc123", "status": "pending"}  ← save task_id
+
+   notebooklm generate video --style auto --json
+   # → {"task_id": "def456", "status": "pending"}  ← save task_id
+
+   notebooklm generate audio "custom instructions" --format deep-dive --json
+   # → {"task_id": "ghi789", "status": "pending"}  ← save task_id
+   ```
+   Parse each JSON response and save the `task_id` — you will need it in step 9.
+   Only generate the artifacts the user requested. Skip the rest.
+   See `references/artifacts.md` → "Deferred Generation" for Tier 2 details.
+
+7. **Download Tier 1** — Each successful Tier 1 artifact into `./output/<slug>/`:
    ```bash
    notebooklm download mind-map ./output/<slug>/mindmap.json
    notebooklm download report ./output/<slug>/report.md
@@ -94,36 +106,49 @@ See `references/artifacts.md` for all 9 artifact types and CLI options.
    notebooklm download flashcards --format json ./output/<slug>/flashcards.json
    notebooklm download data-table ./output/<slug>/data.csv
    notebooklm download infographic ./output/<slug>/infographic.png
-   notebooklm download slide-deck ./output/<slug>/slides.pdf
-   notebooklm download video ./output/<slug>/video.mp4
-   notebooklm download audio ./output/<slug>/podcast.mp3
    ```
 
-8. **Post-process** — If audio was generated, compress for file size:
-   ```bash
-   bash scripts/compress_audio.sh ./output/<slug>/podcast.mp3 ./output/<slug>/podcast_compressed.mp3
-   ```
+8. **Report + Deliver Tier 1** — Present completed Tier 1 artifacts to user.
+   If Tier 2 artifacts are pending, include a status note:
+   > "Slides/Audio/Video are still generating, I'll send them when ready."
 
-9. **Report results** — Present artifact status and file paths to user.
-
-10. **Deliver to Telegram** (OpenClaw only) — If `message` tool is available:
-   1. Text summary (always first)
-   2. Report → Quiz → Flashcards → Mind Map → Slides → Infographic → Data Table → Video → Audio
+   **Telegram delivery** (OpenClaw only) — If `message` tool is available:
+   1. Text summary with Tier 2 pending status (always first)
+   2. Report → Quiz → Flashcards → Mind Map → Infographic → Data Table
 
    See `references/telegram-delivery.md` for delivery contract.
-   Skip this step if running outside OpenClaw (e.g. Claude Code, Codex).
+   Skip Telegram delivery if running outside OpenClaw (e.g. Claude Code, Codex).
+
+9. **Poll + Deliver Tier 2** — Wait for each deferred artifact in order of expected speed (fastest first), then download and deliver as each completes:
+   ```bash
+   # Wait by expected completion order: slide-deck (fastest) → video → audio (slowest)
+   # Uses --interval 5 (not default 2) since Tier 2 artifacts take minutes, not seconds
+   notebooklm artifact wait <slide_task_id> --timeout 1800 --interval 5 --json
+   # → {"status": "completed", ...}  ← task_id from generate is used as artifact_id here
+   notebooklm download slide-deck ./output/<slug>/slides.pdf
+   # → deliver to Telegram immediately
+
+   notebooklm artifact wait <video_task_id> --timeout 1800 --interval 5 --json
+   notebooklm download video ./output/<slug>/video.mp4
+   # → deliver to Telegram immediately
+
+   notebooklm artifact wait <audio_task_id> --timeout 1800 --interval 5 --json
+   notebooklm download audio ./output/<slug>/podcast.mp3
+   bash scripts/compress_audio.sh ./output/<slug>/podcast.mp3 ./output/<slug>/podcast_compressed.mp3
+   # → deliver to Telegram immediately
+   ```
+   - **Order matters**: wait for fastest artifact first (slide-deck → video → audio) to minimize idle time
+   - On completion: download → post-process → deliver to Telegram immediately
+   - On failure: notify user with error reason, continue to next artifact
+   - On timeout: notify user, suggest downloading from NotebookLM directly
+   - Max wait: 30 minutes per artifact (covers worst-case audio/video)
 
 ## Error handling
 
-- Retry up to **2 times** on transient errors (rate limits, timeouts).
 - **Auth errors** → stop immediately, report to user.
-- **Audio/Video failure must NOT block** text artifact delivery.
+- **Tier 1 failure**: retry up to 2 times, then include failure note in step 8 delivery.
+- **Tier 2 failure**: notify user per-artifact in step 9. Tier 1 is already delivered by this point, so Tier 2 failures never block text artifact delivery.
 - Capture failure reason in delivery status.
-
-Fallback order:
-1. Deliver all completed text artifacts on time.
-2. Append failure notes for any failed artifacts with reason.
-3. Suggest retry window for failed long-running artifacts.
 
 ## Quality gate
 

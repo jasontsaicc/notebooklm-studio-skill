@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(find /Users/jasontsai/Projects/notebooklm-studio-skill/notebooklm-py -maxdepth 2 -name \"*.py\" -o -name \"*.md\" 2>/dev/null | head -20)",
+      "Bash(grep -r \"wait\\\\|async\\\\|poll\\\\|timeout\" /Users/jasontsai/Projects/notebooklm-studio-skill --include=\"*.md\" 2>/dev/null | head -40)",
+      "Bash(grep -r \"json\\\\|--wait\" /Users/jasontsai/Projects/notebooklm-studio-skill --include=\"*.md\" 2>/dev/null | head -40)",
+      "Bash(grep -l \"artifact poll\\\\|artifact wait\\\\|poll_status\\\\|wait_for_completion\" /Users/jasontsai/Projects/notebooklm-studio-skill/notebooklm-py/tests/**/*.py 2>/dev/null)",
+      "Bash(git -C /Users/jasontsai/Projects/notebooklm-studio-skill/notebooklm-py remote -v)",
+      "Bash(git -C /Users/jasontsai/Projects/notebooklm-studio-skill/notebooklm-py log --oneline -5)",
+      "Bash(python3 -c \"import notebooklm; print\\(notebooklm.__file__\\)\" 2>/dev/null || echo \"notebooklm not found in Python path\")",
+      "Bash(find /Users/jasontsai/.claude/skills/zlib-to-notebooklm -maxdepth 2 -type f \\\\\\( -name \"SKILL.md\" -o -name \"*.md\" \\\\\\) 2>/dev/null | head -5)",
+      "Bash(git -C /Users/jasontsai/Projects/notebooklm-studio-skill status)",
+      "Bash(pip show:*)"
+    ]
+  }
+}

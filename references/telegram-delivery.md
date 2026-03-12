@@ -28,16 +28,33 @@ Reference script: `scripts/compress_audio.sh`
 - `caption`: short description
 
 ## Delivery order
+
+Delivery happens in two rounds to avoid agent timeouts on slow artifacts.
+
+### Round 1 — Tier 1 (Immediate)
+Delivered as soon as Tier 1 generation completes:
+
 1. Text summary (report + status table) — always first
+   - If Tier 2 artifacts are pending, include: "Slides/Audio/Video are still generating, I'll send them when ready."
 2. Report (Markdown)
 3. Quiz file (JSON/Markdown)
 4. Flashcards file (JSON/Markdown)
 5. Mind Map file (JSON)
-6. Slides file (PDF/PPTX)
-7. Infographic (PNG) — send as **photo** for better preview
-8. Data Table (CSV)
-9. Video (MP4)
-10. Audio (MP3) — last, since it takes longest to generate
+6. Infographic (PNG) — send as **photo** for better preview
+7. Data Table (CSV)
+
+### Round 2 — Tier 2 (Deferred)
+Delivered individually as each artifact completes (via `artifact wait`):
+
+8. Slides file (PDF/PPTX) — typically first to complete (2-10 min)
+9. Video (MP4) — 5-30 min
+10. Audio (MP3) — 5-30 min, compress before sending
+
+Each Tier 2 artifact is sent with a follow-up caption, e.g.:
+- "[Follow-up] Slide deck for <topic>"
+- "[Follow-up] Podcast audio for <topic>"
+
+On failure or timeout, send a text message with the error reason.
 
 Only deliver artifacts that were requested and successfully generated.
 

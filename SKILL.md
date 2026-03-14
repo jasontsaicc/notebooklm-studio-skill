@@ -6,7 +6,7 @@ description: >
   flashcards, mind map, slides, infographic, data table.
   Use when the user sends content and asks to generate learning
   materials, podcasts, videos, or study packages.
-version: 2.0.0
+version: 2.1.0
 metadata:
   openclaw:
     requires:
@@ -242,3 +242,12 @@ See `references/output-contracts.md` for format specifications.
 3. Key takeaways (3-5 bullets)
 4. Failures + fallback note (if any)
 5. One discussion question
+
+## Changelog
+
+### v2.1.0
+
+- **Auth precheck gate** — step 0 runs `auth check --test --json` before any work; expired sessions fail fast instead of blowing up mid-generation.
+- **Dedup gate** — step 6 checks `artifact list` before Tier 2 generation to prevent duplicate artifacts when agent retries or resumes.
+- **Timeout recovery** — `artifact wait` timeout no longer triggers re-generation; polls status and re-waits, giving up only after 2 consecutive timeouts (~60 min).
+- **Delivery confirmation gate** — agent cannot claim "done" until every artifact is delivered or explicitly reported as failed with reason.

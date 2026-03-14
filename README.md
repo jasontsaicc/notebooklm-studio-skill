@@ -94,23 +94,27 @@ See `references/artifacts.md` for full CLI options per artifact type.
 
 - **Python 3.10+**
 - **ffmpeg** (for audio compression)
-- **Git** (with submodule support)
 - **OS**: macOS, Linux (Ubuntu 20.04+), or Windows
 
-### 1. Clone with submodule
+### 1. Install the skill
 
+**Option A — ClawHub (recommended):**
+```bash
+clawhub install notebooklm-studio
+```
+
+**Option B — Git clone:**
 ```bash
 git clone --recurse-submodules https://github.com/jasontsaicc/notebooklm-studio-skill.git
 cd notebooklm-studio-skill
-
-# Or if already cloned:
-git submodule update --init
 ```
 
-### 2. Install notebooklm-py
+### 2. Install notebooklm CLI
+
+The skill requires the `notebooklm` CLI tool. This is a separate dependency regardless of how you installed the skill.
 
 ```bash
-cd notebooklm-py && pip install -e ".[browser]" && cd ..
+pip install "notebooklm-py[browser]"
 playwright install chromium
 ```
 
@@ -161,6 +165,8 @@ notebooklm auth check --test
 Expected: all checks pass, token fetch succeeds.
 
 ### 6. Install as agent skill
+
+If you used ClawHub (Option A), the skill is already installed. For Git clone (Option B):
 
 **Claude Code:**
 ```bash

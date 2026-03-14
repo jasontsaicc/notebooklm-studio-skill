@@ -157,6 +157,22 @@ See `references/artifacts.md` for all 9 artifact types and CLI options.
    Only generate the artifacts the user requested. Skip the rest.
    See `references/artifacts.md` → "Deferred Generation" for Tier 2 details.
 
+   **Write delivery status** — Immediately after all Tier 2 generates are dispatched, write `./output/<slug>/delivery-status.json` so the recovery script can pick up if the agent times out:
+   ```json
+   {
+     "slug": "<slug>",
+     "notebook_id": "<notebook_id>",
+     "created_at": "<ISO 8601>",
+     "artifacts": [
+       {"type": "slide-deck", "task_id": "<id>", "status": "pending", "output_path": "./output/<slug>/slides.pdf"},
+       {"type": "audio", "task_id": "<id>", "status": "pending", "output_path": "./output/<slug>/podcast.mp3"}
+     ]
+   }
+   ```
+   Update each artifact's `status` to `completed` or `failed` as step 9 progresses.
+   This file is the handoff contract between the agent and `scripts/recover_tier2_delivery.sh`.
+   Telegram delivery is agent-only (requires OpenClaw `message` tool); the recovery script handles download + status tracking only.
+
 7. **Download Tier 1** — Each successful Tier 1 artifact into `./output/<slug>/`:
    ```bash
    notebooklm download mind-map ./output/<slug>/mindmap.json
@@ -198,10 +214,12 @@ See `references/artifacts.md` for all 9 artifact types and CLI options.
    # → deliver to Telegram immediately
    ```
    - **Order matters**: wait for fastest artifact first (slide-deck → video → audio) to minimize idle time
-   - On completion: download → post-process → deliver to Telegram immediately
-   - On failure: notify user with error reason, continue to next artifact
+   - On completion: download → post-process → deliver to Telegram → update `delivery-status.json` status to `completed`
+   - On failure: update status to `failed` with reason, notify user, continue to next artifact
    - On timeout: see timeout recovery below
    - Max wait: 30 minutes per artifact (covers worst-case audio/video)
+   - If agent is about to exit with any artifact still `pending`, tell the user:
+     > "Tier 2 補送模式已啟動，recovery script 會每 5 分鐘檢查並自動送達。"
 
    **⚠️ Timeout recovery** — If `artifact wait` returns `status: "timeout"`, the artifact is likely still generating. **NEVER re-generate**. Instead:
    1. Re-check status: `notebooklm artifact poll <task_id> --json`
@@ -255,3 +273,4 @@ See `references/output-contracts.md` for format specifications.
 - **Dedup gate** — step 6 checks `artifact list` before Tier 2 generation to prevent duplicate artifacts when agent retries or resumes.
 - **Timeout recovery** — `artifact wait` timeout no longer triggers re-generation; polls status and re-waits, giving up only after 2 consecutive timeouts (~60 min).
 - **Delivery confirmation gate** — agent cannot claim "done" until every artifact is delivered or explicitly reported as failed with reason.
+- **Delivery status contract** — step 6 writes `delivery-status.json` after Tier 2 dispatch; step 9 updates it as artifacts complete. Enables cron-based recovery via `scripts/recover_tier2_delivery.sh` when agent times out.

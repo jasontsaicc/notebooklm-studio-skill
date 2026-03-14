@@ -1,11 +1,12 @@
+[中文](README.zh-TW.md) | English
+
 # NotebookLM Studio Skill
 
 AI agent skill for Google NotebookLM — import sources (URLs, YouTube, files, text) and generate podcasts, videos, reports, quizzes, flashcards, mind maps, slides, infographics, and data tables.
 
 Works with **Claude Code**, **OpenClaw**, **Codex**, and any agent that supports the [Agent Skills](https://agentskills.io) specification.
 
-<!-- TODO: replace with your screenshot -->
-<!-- ![Demo](assets/demo-telegram.gif) -->
+![Full Flow Demo](assets/demo-full-flow.png)
 
 ## Features
 
@@ -38,17 +39,6 @@ Just tell your AI agent what you want. No CLI knowledge needed.
 > https://example.com/article
 
 The agent handles everything: creating the notebook, adding sources, generating artifacts, and delivering results back to you.
-
-## Artifact Gallery
-
-<!-- TODO: add your screenshots here -->
-
-| Artifact | Example |
-|----------|---------|
-| Report | <!-- ![Report](assets/example-report.png) --> *screenshot coming soon* |
-| Slide Deck | <!-- ![Slides](assets/example-slides.png) --> *screenshot coming soon* |
-| Infographic | <!-- ![Infographic](assets/example-infographic.png) --> *screenshot coming soon* |
-| Podcast (Audio) | <!-- ![Audio](assets/example-audio.png) --> *screenshot coming soon* |
 
 ## How It Works
 
@@ -100,6 +90,7 @@ See `references/artifacts.md` for full CLI options per artifact type.
 
 **Option A — ClawHub (recommended):**
 ```bash
+npm i -g clawhub        # install ClawHub CLI (one-time)
 clawhub install notebooklm-studio
 ```
 
@@ -110,6 +101,8 @@ cd notebooklm-studio-skill
 ```
 
 ### 2. Install notebooklm CLI
+
+> **Both Option A and B require steps 2–5 below.**
 
 The skill requires the `notebooklm` CLI tool. This is a separate dependency regardless of how you installed the skill.
 
@@ -164,9 +157,9 @@ notebooklm auth check --test
 
 Expected: all checks pass, token fetch succeeds.
 
-### 6. Install as agent skill
+### 6. Install as agent skill (Option B only)
 
-If you used ClawHub (Option A), the skill is already installed. For Git clone (Option B):
+Skip this step if you used ClawHub. For Git clone:
 
 **Claude Code:**
 ```bash

@@ -6,7 +6,7 @@ description: >
   flashcards, mind map, slides, infographic, data table.
   Use when the user sends content and asks to generate learning
   materials, podcasts, videos, or study packages.
-version: 2.1.1
+version: 2.1.2
 metadata:
   openclaw:
     requires:

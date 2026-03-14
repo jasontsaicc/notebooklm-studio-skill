@@ -71,6 +71,7 @@ See `references/artifacts.md` for all 9 artifact types and CLI options.
 3. **Create notebook** —
    ```bash
    notebooklm create "<slug> <YYYYMMDD>"
+   # → {"notebook_id": "xyz789", ...}  ← capture notebook_id
    notebooklm use <notebook_id>
    mkdir -p ./output/<slug>
    ```
@@ -92,6 +93,20 @@ See `references/artifacts.md` for all 9 artifact types and CLI options.
    For plain text → save to a `.txt` file first, then `source add "./temp_text.txt"`.
 
 6. **Generate artifacts** — Two-tier strategy for timeout safety:
+
+   **⚠️ Deduplication gate (Tier 2 only)** — Before generating Tier 2 artifacts, call `artifact list` **once** and check all requested types in that single response:
+   ```bash
+   notebooklm artifact list --json
+   # → [{"task_id": "abc123", "type": "slide-deck", "status": "processing"}, ...]
+   ```
+   For each Tier 2 artifact you are about to generate, look for entries where `type` matches (e.g., `slide-deck`, `audio`, `video`). If multiple entries match the same type, the non-terminal status takes priority (`processing`/`pending` > `completed` > `failed`):
+   - `processing` / `pending` → **do NOT generate again**. Take the existing `task_id`, go to step 9 (wait + deliver).
+   - `completed` → **do NOT generate again**. Skip the wait — go directly to download + deliver in step 9.
+   - `failed` → safe to re-generate.
+   - No matching entry → proceed with generation.
+
+   If `artifact list` itself fails or returns an error, proceed with generation — the dedup check is a safety net, not a hard gate.
+   Duplicate generation wastes resources and causes confusion — this gate prevents the most common operational error.
 
    **Tier 1 — Immediate** (use `--wait`, completes within timeout):
    ```bash
@@ -170,8 +185,16 @@ See `references/artifacts.md` for all 9 artifact types and CLI options.
    - **Order matters**: wait for fastest artifact first (slide-deck → video → audio) to minimize idle time
    - On completion: download → post-process → deliver to Telegram immediately
    - On failure: notify user with error reason, continue to next artifact
-   - On timeout: notify user, suggest downloading from NotebookLM directly
+   - On timeout: see timeout recovery below
    - Max wait: 30 minutes per artifact (covers worst-case audio/video)
+
+   **⚠️ Timeout recovery** — If `artifact wait` returns `status: "timeout"`, the artifact is likely still generating. **NEVER re-generate**. Instead:
+   1. Re-check status: `notebooklm artifact poll <task_id> --json`
+   2. If `processing` → re-wait: `notebooklm artifact wait <task_id> --timeout 1800 --interval 5 --json`
+   3. If `completed` → download and deliver
+   4. If `failed` → notify user with error, move to next artifact
+   5. If re-wait also times out (2+ total timeouts, ~60 min elapsed) → give up, notify user, suggest downloading from NotebookLM directly
+   A timeout means the wait expired, not that generation failed. The task continues server-side. Re-generating creates duplicates and wastes time.
 
 ## Error handling
 
@@ -179,6 +202,16 @@ See `references/artifacts.md` for all 9 artifact types and CLI options.
 - **Tier 1 failure**: retry up to 2 times, then include failure note in step 8 delivery.
 - **Tier 2 failure**: notify user per-artifact in step 9. Tier 1 is already delivered by this point, so Tier 2 failures never block text artifact delivery.
 - Capture failure reason in delivery status.
+
+## Delivery confirmation gate
+
+Before reporting "complete" to the user, ALL of the following must be true:
+1. Every requested artifact is either **successfully delivered** or **reported as failed with reason**
+2. For Telegram delivery (OpenClaw): each `message` tool call (OpenClaw's built-in messaging tool) returned a success response with a `messageId`
+   - If a send fails, retry once. If still failing, report the failure to the user — do NOT silently skip
+3. No artifact is still in `processing` or `pending` status without being tracked
+
+**Never say "done" while any artifact is still pending delivery.** If Tier 2 artifacts are still generating, say so explicitly and continue waiting. The task is not complete until everything is delivered or accounted for.
 
 ## Quality gate
 

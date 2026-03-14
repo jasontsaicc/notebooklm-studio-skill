@@ -73,6 +73,35 @@ Only deliver artifacts that were requested and successfully generated.
 - Send as document with `.csv` extension
 - Caption should note "UTF-8 CSV — opens in Excel/Google Sheets"
 
+## Delivery confirmation checklist
+
+"Delivery" means calling OpenClaw's `message` tool (the built-in messaging tool available in the agent runtime). Each artifact delivery must be verified before moving on:
+
+1. Call `message` tool to send text or file to Telegram
+2. Check the response — success means a `messageId` was returned
+3. If failed → retry once
+4. If still failed → send a text notification to the user explaining which artifact failed and why. If this notification itself also fails, log the error and continue to the next artifact — do not loop.
+5. Track delivery status per artifact: `delivered` | `failed`
+
+**The task is not complete until every requested artifact has a final delivery status.** This prevents the agent from saying "done" when artifacts are still undelivered.
+
+### Per-artifact delivery tracking
+
+Initialize `./output/<slug>/delivery-status.json` at the start of delivery (Step 8) with all requested artifacts set to `pending`, then update as each delivery completes. This prevents status from being lost in long conversations or agent crashes:
+
+```json
+{
+  "report.md": "delivered",
+  "quiz.json": "delivered",
+  "slides.pdf": "pending",
+  "podcast.mp3": "pending"
+}
+```
+
+Valid statuses: `pending` | `delivered` | `failed`
+
+After every delivery attempt, print the full status table to keep it visible in the context window. Only report completion when every entry has a terminal status (`delivered` or `failed`).
+
 ## Failure handling
 - If compression fails, return `error_code=FFMPEG_COMPRESS_FAILED`.
 - If upload fails, return `error_code=TELEGRAM_UPLOAD_FAILED`.

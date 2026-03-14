@@ -299,6 +299,25 @@ For slow artifacts (slide-deck, video, audio) that risk exceeding agent timeouts
 
 *\*infographic is borderline (2-5 min). If it times out in Tier 1, fall back to Tier 2 strategy on retry.*
 
+### Step 0: Deduplication check
+
+Before generating any Tier 2 artifact, call `artifact list` **once** and check all requested types in that single response:
+
+```bash
+notebooklm artifact list --json
+# → [{"task_id": "abc123", "type": "slide-deck", "status": "processing"}, ...]
+```
+
+For each Tier 2 artifact you are about to generate, look for entries where `type` matches (e.g., `slide-deck`, `audio`, `video`). If multiple entries match the same type, the non-terminal status takes priority (`processing`/`pending` > `completed` > `failed`):
+- `processing` / `pending` → **do NOT generate again**. Take the existing `task_id`, skip to Step 2 below (= SKILL.md workflow step 9).
+- `completed` → **do NOT generate again**. Skip to Step 3 (download + deliver).
+- `failed` → safe to re-generate (proceed to Step 1).
+- No matching entry → proceed to Step 1.
+
+If `artifact list` itself fails or returns an error, proceed with generation — the dedup check is a safety net, not a hard gate.
+
+This prevents the most common operational error: timeout → re-generate → multiple tasks of the same type running in parallel.
+
 ### Step 1: Start Generation (non-blocking)
 
 Use `--json` without `--wait` to start generation and get a `task_id`:
@@ -331,7 +350,7 @@ notebooklm artifact wait <task_id> --timeout 1800 --interval 5 --json
 
 **Note on IDs:** The `task_id` returned by `generate --json` is the same value used as `artifact_id` in `artifact wait` responses. They are the same ID.
 
-**`artifact poll`** — single status check, does NOT block. Use only for external monitoring or debugging, not in the skill workflow:
+**`artifact poll`** — single status check, does NOT block. Use only for external monitoring, debugging, or timeout recovery — not in the normal generation workflow:
 ```bash
 notebooklm artifact poll <task_id> --json
 # → {"status": "processing"} | {"status": "completed"} | {"status": "failed"}
@@ -347,9 +366,21 @@ bash scripts/compress_audio.sh ./output/<slug>/podcast.mp3 ./output/<slug>/podca
 # → deliver to Telegram
 ```
 
+### Timeout recovery
+
+A timeout from `artifact wait` means the **wait expired**, not that the generation failed. The task continues running server-side. The correct response is:
+
+1. `notebooklm artifact poll <task_id> --json` — check current status
+2. If `processing` → re-wait: `notebooklm artifact wait <task_id> --timeout 1800 --interval 5 --json`
+3. If `completed` → proceed to Step 3 (download + deliver)
+4. If `failed` → notify user, move on
+5. If re-wait also times out (2+ total timeouts, ~60 min elapsed) → give up, notify user, suggest downloading from NotebookLM directly
+
+**NEVER re-generate after a timeout.** This is the single most important rule for Tier 2 artifacts. Re-generating creates duplicate tasks that cause confusion and waste resources.
+
 ### Notes
 
 - For media artifacts (audio, video, slide-deck, and infographic [Tier 1]), the API may report `completed` before media URLs are ready. The `artifact wait` command handles this internally by treating URL-less completions as still processing. This behavior applies to all media types regardless of tier.
 - `artifact wait` uses exponential backoff — no need to implement custom retry logic.
 - Process each Tier 2 artifact as it completes; don't wait for all before delivering.
-- If `artifact wait` times out, notify the user and suggest downloading from NotebookLM directly.
+- See "Timeout recovery" above for the re-wait procedure and 2+ timeout cap.

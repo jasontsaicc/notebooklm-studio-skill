@@ -37,6 +37,10 @@ See `references/artifacts.md` for all 9 artifact types and CLI options.
 
 ## Workflow
 
+**Steps are sequential gates — do NOT skip or combine steps.** Each numbered step must complete before the next begins. In particular:
+- Step 0 (auth precheck) must run and pass before any other CLI command.
+- Step 1b (options discussion) must get user confirmation before generation. Do not assume defaults unless the user explicitly says "use defaults."
+
 0. **Auth precheck** — Verify the session is valid before doing any work:
    ```bash
    notebooklm auth check --test --json

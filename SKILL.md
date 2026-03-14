@@ -37,6 +37,17 @@ See `references/artifacts.md` for all 9 artifact types and CLI options.
 
 ## Workflow
 
+0. **Auth precheck** — Verify the session is valid before doing any work:
+   ```bash
+   notebooklm auth check --test --json
+   ```
+   - `"status": "ok"` → proceed to step 1.
+   - `"status": "error"` → **stop immediately**. Tell the user:
+     > NotebookLM 登入已過期，請先重新登入（`notebooklm login`），完成後告訴我，我再繼續。
+   - Command itself fails (network error, CLI not found, etc.) → also stop and report the error.
+   - `--test` is required — without it, only local checks run, which can pass even with an expired session.
+   - When the user confirms re-login, re-run this check before continuing.
+
 1. **Parse input & configure artifacts** —
 
    **1a. Select artifacts** — Detect source types from user message (URLs, files, text). Confirm which artifacts to generate.
@@ -198,7 +209,7 @@ See `references/artifacts.md` for all 9 artifact types and CLI options.
 
 ## Error handling
 
-- **Auth errors** → stop immediately, report to user.
+- **Auth errors** → caught by step 0 precheck. If any CLI command later returns an authentication/session error (HTTP 401, "Not logged in", "session expired", token fetch failure), treat it as a mid-workflow auth failure — stop, ask user to re-login, then re-run step 0 before resuming.
 - **Tier 1 failure**: retry up to 2 times, then include failure note in step 8 delivery.
 - **Tier 2 failure**: notify user per-artifact in step 9. Tier 1 is already delivered by this point, so Tier 2 failures never block text artifact delivery.
 - Capture failure reason in delivery status.

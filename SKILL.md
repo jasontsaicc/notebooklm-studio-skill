@@ -218,7 +218,7 @@ See `references/artifacts.md` for all 9 artifact types and CLI options.
    # → deliver to Telegram immediately
    ```
    - **Order matters**: wait for fastest artifact first (slide-deck → video → audio) to minimize idle time
-   - On completion: download → post-process → deliver to Telegram → update `delivery-status.json` status to `completed`
+   - On completion: download → post-process → deliver to Telegram → update `delivery-status.json` status to `delivered`
    - On failure: update status to `failed` with reason, notify user, continue to next artifact
    - On timeout: see timeout recovery below
    - Max wait: 30 minutes per artifact (covers worst-case audio/video)

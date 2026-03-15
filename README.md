@@ -47,12 +47,12 @@ You ──────── "Generate a report and slides from this URL"
                 │
                 ▼
         AI Agent (Claude Code / OpenClaw / Codex)
-                │  reads SKILL.md → 9-step workflow
+                │  reads SKILL.md → 10-step workflow
                 ▼
         notebooklm CLI
                 │  create notebook → add sources → generate → download
                 ▼
-        ./output/<topic>/
+        ./output/<slug>/
             ├── report.md
             ├── slides.pdf
             ├── podcast.mp3
@@ -202,7 +202,8 @@ If this works, your setup is complete. The AI agent will follow the same workflo
 
 ```
 notebooklm-studio-skill/
-├── SKILL.md                         # Agent skill definition (9-step workflow)
+├── SKILL.md                         # Agent skill definition (10-step workflow)
+├── CLAUDE.md                        # Claude Code project instructions
 ├── README.md
 ├── LICENSE
 ├── notebooklm-py/                   # git submodule (notebooklm CLI)
@@ -251,11 +252,14 @@ If the agent times out mid-delivery, `delivery-status.json` tracks what's still 
 ```
 
 What it does:
+- Waits 30 minutes after creation before intervening (gives the agent time to finish)
 - Scans `output/*/delivery-status.json` for `"status": "pending"` artifacts
 - Polls each via `notebooklm artifact poll <task_id>`
 - If `completed` → downloads, compresses audio, updates status
 - If `failed` → marks as failed
 - If `processing` → skips (next run will retry)
+
+Set `RECOVERY_COOLDOWN_MIN` to adjust the wait time (default: 30).
 
 ### 3. Health Check Cron (every 30 min)
 

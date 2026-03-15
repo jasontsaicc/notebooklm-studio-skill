@@ -87,18 +87,30 @@ Only deliver artifacts that were requested and successfully generated.
 
 ### Per-artifact delivery tracking
 
-Initialize `./output/<slug>/delivery-status.json` at the start of delivery (Step 8) with all requested artifacts set to `pending`, then update as each delivery completes. This prevents status from being lost in long conversations or agent crashes:
+The agent writes `./output/<slug>/delivery-status.json` in Step 6 (after Tier 2 dispatch) and updates it through Steps 8-9. This file uses the **same schema** as the recovery script (`scripts/recover_tier2_delivery.sh`):
 
 ```json
 {
-  "report.md": "delivered",
-  "quiz.json": "delivered",
-  "slides.pdf": "pending",
-  "podcast.mp3": "pending"
+  "slug": "<slug>",
+  "notebook_id": "<notebook_id>",
+  "created_at": "<ISO 8601>",
+  "artifacts": [
+    {"type": "report", "task_id": null, "status": "delivered", "output_path": "./output/<slug>/report.md"},
+    {"type": "quiz", "task_id": null, "status": "delivered", "output_path": "./output/<slug>/quiz.json"},
+    {"type": "slide-deck", "task_id": "<id>", "status": "pending", "output_path": "./output/<slug>/slides.pdf"},
+    {"type": "audio", "task_id": "<id>", "status": "pending", "output_path": "./output/<slug>/podcast.mp3"}
+  ]
 }
 ```
 
-Valid statuses: `pending` | `delivered` | `failed`
+Valid statuses: `pending` | `completed` | `delivered` | `failed`
+
+- `pending` — generation in progress or not yet downloaded
+- `completed` — downloaded but not yet delivered to Telegram
+- `delivered` — successfully sent to Telegram (or Telegram not applicable)
+- `failed` — generation or delivery failed (add `"error": "<reason>"` field)
+
+Tier 1 artifacts go directly to `delivered` after successful Telegram send. Tier 2 artifacts transition `pending` → `completed` (after download) → `delivered` (after Telegram send).
 
 After every delivery attempt, print the full status table to keep it visible in the context window. Only report completion when every entry has a terminal status (`delivered` or `failed`).
 

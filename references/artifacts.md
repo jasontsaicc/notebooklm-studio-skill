@@ -294,10 +294,8 @@ For slow artifacts (slide-deck, video, audio) that risk exceeding agent timeouts
 
 | Tier | Artifacts | Strategy | Max Time |
 |------|-----------|----------|----------|
-| **Tier 1 — Immediate** | mind-map, report, quiz, flashcards, data-table, infographic* | `--wait` (blocking) | < 5 min |
+| **Tier 1 — Immediate** | mind-map, report, quiz, flashcards, data-table, infographic | `--wait` (blocking) | < 5 min |
 | **Tier 2 — Deferred** | slide-deck, video, audio | `--json` (non-blocking) → poll/wait | 5-30 min |
-
-*\*infographic is borderline (2-5 min). If it times out in Tier 1, fall back to Tier 2 strategy on retry.*
 
 ### Step 0: Deduplication check
 

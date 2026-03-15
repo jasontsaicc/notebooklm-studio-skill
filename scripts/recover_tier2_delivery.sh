@@ -16,29 +16,35 @@ set -euo pipefail
 # when the user checks, or for a subsequent agent run to deliver.
 #
 # Environment:
-#   RECOVERY_TTL_HOURS  — skip status files older than this (default: 24)
+#   RECOVERY_TTL_HOURS    — skip status files older than this (default: 24)
+#   RECOVERY_COOLDOWN_MIN — skip artifacts younger than this (default: 30)
+#                           Gives the agent time to finish before cron intervenes.
 #
 # Exit codes:
 #   0  — all done or nothing to do
 #   1  — auth failure (needs notebooklm login)
 #   2  — partial failure (some artifacts failed)
 
+# --- Logging with ISO timestamps ---
+log() { echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) $*"; }
+
 # --- Concurrent-run guard ---
 exec 200>/tmp/recover_tier2_delivery.lock
-flock -n 200 || { echo "Already running"; exit 0; }
+flock -n 200 || { log "Already running"; exit 0; }
 
 OUTPUT_DIR="${1:-./output}"
 TTL_HOURS="${RECOVERY_TTL_HOURS:-24}"
+COOLDOWN_MIN="${RECOVERY_COOLDOWN_MIN:-30}"
 
 if [ ! -d "$OUTPUT_DIR" ]; then
-  echo "Output directory not found: $OUTPUT_DIR" >&2
+  log "Output directory not found: $OUTPUT_DIR" >&2
   exit 0
 fi
 
 # Pre-flight: auth check
 AUTH_STATUS=$(notebooklm auth check --test --json 2>/dev/null || echo '{"status":"error"}')
 if echo "$AUTH_STATUS" | grep -q '"status": *"error"'; then
-  echo "Auth check failed — run 'notebooklm login' first" >&2
+  log "Auth check failed — run 'notebooklm login' first" >&2
   exit 1
 fi
 
@@ -50,24 +56,29 @@ for STATUS_FILE in "$OUTPUT_DIR"/*/delivery-status.json; do
 
   SLUG_DIR="$(dirname "$STATUS_FILE")"
 
-  # Read pending artifacts + notebook_id, skip stale files
-  READ_OUTPUT=$(python3 - "$STATUS_FILE" "$TTL_HOURS" <<'PYEOF'
+  # Read pending artifacts + notebook_id, skip stale files and young files
+  READ_OUTPUT=$(python3 - "$STATUS_FILE" "$TTL_HOURS" "$COOLDOWN_MIN" <<'PYEOF'
 import json, sys
 from datetime import datetime, timedelta, timezone
 
 status_file = sys.argv[1]
 ttl_hours = int(sys.argv[2])
+cooldown_min = int(sys.argv[3])
 
 with open(status_file) as f:
     data = json.load(f)
 
-# TTL check — skip if older than threshold
 created_at = data.get("created_at", "")
 if created_at:
     try:
         created = datetime.fromisoformat(created_at.replace("Z", "+00:00"))
-        if datetime.now(timezone.utc) - created > timedelta(hours=ttl_hours):
+        age = datetime.now(timezone.utc) - created
+        # TTL check — skip if older than threshold
+        if age > timedelta(hours=ttl_hours):
             sys.exit(0)  # stale, skip silently
+        # Cooldown check — skip if younger than threshold (agent likely still running)
+        if age < timedelta(minutes=cooldown_min):
+            sys.exit(0)  # too young, let agent finish
     except ValueError:
         pass  # can't parse date, process anyway
 
@@ -87,12 +98,12 @@ PYEOF
 
   [ -z "$PENDING_LINES" ] && continue
 
-  echo "Processing: $SLUG_DIR ($NOTEBOOK_ID)"
+  log "Processing: $SLUG_DIR ($NOTEBOOK_ID)"
 
   while IFS='|' read -r TYPE TASK_ID OUTPUT_PATH; do
     [ -z "$TASK_ID" ] && continue
 
-    echo "  Checking $TYPE (task: ${TASK_ID:0:12}...)"
+    log "  Checking $TYPE (task: ${TASK_ID:0:12}...)"
 
     # Poll artifact status
     POLL_RESULT=$(notebooklm artifact poll "$TASK_ID" --json 2>/dev/null || echo '{"status":"unknown"}')
@@ -100,7 +111,7 @@ PYEOF
 
     case "$STATUS" in
       completed)
-        echo "  ✓ $TYPE completed — downloading"
+        log "  ✓ $TYPE completed — downloading"
 
         # Download
         notebooklm download "$TYPE" "$OUTPUT_PATH" -n "$NOTEBOOK_ID" 2>/dev/null && {
@@ -108,7 +119,7 @@ PYEOF
           if [ "$TYPE" = "audio" ] && command -v ffmpeg >/dev/null 2>&1; then
             COMPRESSED="${OUTPUT_PATH%.mp3}_compressed.mp3"
             bash "$SCRIPT_DIR/compress_audio.sh" "$OUTPUT_PATH" "$COMPRESSED" 2>/dev/null && {
-              echo "  ✓ Audio compressed: $COMPRESSED"
+              log "  ✓ Audio compressed: $COMPRESSED"
             } || true
           fi
 
@@ -125,15 +136,15 @@ for a in data["artifacts"]:
 with open(status_file, "w") as f:
     json.dump(data, f, indent=2)
 PYEOF
-          echo "  ✓ $TYPE delivered"
+          log "  ✓ $TYPE delivered"
         } || {
-          echo "  ✗ $TYPE download failed" >&2
+          log "  ✗ $TYPE download failed" >&2
           HAS_FAILURE=1
         }
         ;;
 
       failed)
-        echo "  ✗ $TYPE generation failed"
+        log "  ✗ $TYPE generation failed"
         python3 - "$STATUS_FILE" "$TASK_ID" "failed" "generation failed on server" <<'PYEOF'
 import json, sys
 status_file, task_id, new_status, error = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4]
@@ -151,11 +162,11 @@ PYEOF
         ;;
 
       processing|pending)
-        echo "  … $TYPE still generating"
+        log "  … $TYPE still generating"
         ;;
 
       *)
-        echo "  ? $TYPE unknown status: $STATUS"
+        log "  ? $TYPE unknown status: $STATUS"
         ;;
     esac
 
@@ -166,4 +177,4 @@ if [ "$HAS_FAILURE" -eq 1 ]; then
   exit 2
 fi
 
-echo "Recovery check complete."
+log "Recovery check complete."

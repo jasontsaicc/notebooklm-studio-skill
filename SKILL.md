@@ -6,7 +6,7 @@ description: >
   flashcards, mind map, slides, infographic, data table.
   Use when the user sends content and asks to generate learning
   materials, podcasts, videos, or study packages.
-version: 2.1.2
+version: 2.1.3
 metadata:
   openclaw:
     requires:
@@ -40,6 +40,8 @@ See `references/artifacts.md` for all 9 artifact types and CLI options.
 **Steps are sequential gates — do NOT skip or combine steps.** Each numbered step must complete before the next begins. In particular:
 - Step 0 (auth precheck) must run and pass before any other CLI command.
 - Step 1b (options discussion) must get user confirmation before generation. Do not assume defaults unless the user explicitly says "use defaults."
+
+⚠️ **Concurrency**: This skill does NOT support concurrent execution on the same NotebookLM account. The CLI uses global state (`notebooklm use`, `language set`) that will conflict if two agents run simultaneously.
 
 0. **Auth precheck** — Verify the session is valid before doing any work:
    ```bash
@@ -81,6 +83,7 @@ See `references/artifacts.md` for all 9 artifact types and CLI options.
 2. **Derive slug** — Based on the sources and user message, generate a short kebab-case slug (2-4 words) that captures the core topic. This slug is used for both the notebook name and the output directory.
    - Examples: `react-server-components`, `feynman-technique`, `taiwan-semiconductor-q4`
    - Keep it concise, lowercase, ASCII-only (transliterate non-ASCII if needed)
+   - Must match: `^[a-z0-9][a-z0-9-]{0,48}[a-z0-9]$` (no slashes, dots, spaces, or path traversal)
    - If the user provides a topic or title, prefer that as the basis
 
 3. **Create notebook** —
@@ -134,7 +137,7 @@ See `references/artifacts.md` for all 9 artifact types and CLI options.
    notebooklm generate flashcards --difficulty <chosen_difficulty> --quantity <chosen_quantity> --wait
    notebooklm generate data-table "<description>" --wait
 
-   # Medium async (2-5 min, borderline — if timeout, retry or move to Tier 2)
+   # Medium async (2-5 min)
    notebooklm generate infographic --style <chosen_style> --orientation <chosen_orientation> --wait
    ```
 
@@ -164,12 +167,13 @@ See `references/artifacts.md` for all 9 artifact types and CLI options.
      "notebook_id": "<notebook_id>",
      "created_at": "<ISO 8601>",
      "artifacts": [
+       {"type": "report", "task_id": null, "status": "delivered", "output_path": "./output/<slug>/report.md"},
        {"type": "slide-deck", "task_id": "<id>", "status": "pending", "output_path": "./output/<slug>/slides.pdf"},
        {"type": "audio", "task_id": "<id>", "status": "pending", "output_path": "./output/<slug>/podcast.mp3"}
      ]
    }
    ```
-   Update each artifact's `status` to `completed` or `failed` as step 9 progresses.
+   Include all requested artifacts (both Tier 1 and Tier 2). Tier 1 artifacts start as `delivered` (already sent). Update Tier 2 status as step 9 progresses: `pending` → `completed` (downloaded) → `delivered` (sent to Telegram), or `failed` on error.
    This file is the handoff contract between the agent and `scripts/recover_tier2_delivery.sh`.
    Telegram delivery is agent-only (requires OpenClaw `message` tool); the recovery script handles download + status tracking only.
 
@@ -232,8 +236,12 @@ See `references/artifacts.md` for all 9 artifact types and CLI options.
 ## Error handling
 
 - **Auth errors** → caught by step 0 precheck. If any CLI command later returns an authentication/session error (HTTP 401, "Not logged in", "session expired", token fetch failure), treat it as a mid-workflow auth failure — stop, ask user to re-login, then re-run step 0 before resuming.
-- **Tier 1 failure**: retry up to 2 times, then include failure note in step 8 delivery.
+- **Tier 1 failure**: retry up to 2 times (3 total attempts), then include failure note in step 8 delivery.
 - **Tier 2 failure**: notify user per-artifact in step 9. Tier 1 is already delivered by this point, so Tier 2 failures never block text artifact delivery.
+- **All sources failed** (step 5): if every `source add` fails, **stop immediately** — generation without sources is meaningless. Report the failures and ask user to check sources.
+- **Notebook creation failed** (step 3): if `notebooklm create` fails (API error, rate limit), **stop and report**. Do not proceed without a valid notebook_id.
+- **delivery-status.json write failure** (step 6): if writing the JSON file fails, log a warning and continue — Tier 2 artifacts are already dispatched. The agent can still poll and deliver, but cron recovery will not be available.
+- **Audio still > 50MB after compression** (step 9): if `compress_audio.sh` output exceeds 50MB, warn user and provide the local file path instead of attempting Telegram delivery. Suggest downloading from NotebookLM directly.
 - Capture failure reason in delivery status.
 
 ## Delivery confirmation gate

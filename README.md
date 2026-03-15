@@ -315,8 +315,7 @@ If `processing` → wait. If stuck for 60+ minutes → check the [NotebookLM web
 ## Updating notebooklm-py
 
 ```bash
-cd notebooklm-py && git pull origin main && cd ..
-pip install -e "notebooklm-py[browser]"
+pip install --upgrade "notebooklm-py[browser]"
 ```
 
 ## Powered By

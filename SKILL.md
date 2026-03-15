@@ -275,6 +275,16 @@ See `references/output-contracts.md` for format specifications.
 
 ## Changelog
 
+### v2.1.3
+
+- **Schema unification** — `delivery-status.json` now uses a single schema across SKILL.md, `telegram-delivery.md`, and recovery script. Eliminates conflicting flat vs structured formats.
+- **Recovery cooldown** — cron script skips artifacts younger than 30 minutes (`RECOVERY_COOLDOWN_MIN`), preventing agent/cron race conditions.
+- **Concurrency guard** — explicit warning that concurrent execution on the same account is unsupported (CLI global state conflicts).
+- **Infographic fixed Tier 1** — removed ambiguous "borderline" classification; infographic is now unambiguously Tier 1.
+- **Critical error handling** — added 5 rules for previously silent failures: all-sources-failed, notebook-create-failed, delivery-json-write-failure, audio-over-50MB, and retry count clarification.
+- **Slug validation** — regex `^[a-z0-9][a-z0-9-]{0,48}[a-z0-9]$` prevents path traversal and command injection.
+- **Recovery logging** — ISO 8601 timestamps on all recovery script output.
+
 ### v2.1.0
 
 - **Auth precheck gate** — step 0 runs `auth check --test --json` before any work; expired sessions fail fast instead of blowing up mid-generation.

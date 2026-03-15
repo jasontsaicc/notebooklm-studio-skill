@@ -136,7 +136,7 @@ for a in data["artifacts"]:
 with open(status_file, "w") as f:
     json.dump(data, f, indent=2)
 PYEOF
-          log "  ✓ $TYPE delivered"
+          log "  ✓ $TYPE downloaded"
         } || {
           log "  ✗ $TYPE download failed" >&2
           HAS_FAILURE=1
